@@ -187,6 +187,7 @@
     rerun
     gdrive
     cbonsai
+    wishlist
 
     # RF
     gnuradio
