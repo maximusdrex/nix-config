@@ -189,6 +189,7 @@
     cbonsai
     wishlist
     qalculate-qt
+    anytype
 
     # RF
     gnuradio
