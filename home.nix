@@ -188,6 +188,7 @@
     gdrive
     cbonsai
     wishlist
+    qalculate-qt
 
     # RF
     gnuradio
