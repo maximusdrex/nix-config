@@ -23,31 +23,19 @@ This repository is meant to generate Nix configurations for all hosts I manage.
 │       ├── default.nix
 │       └── hardware-configuration.nix
 ├── modules
-│   └── wavemux
+│   └── ...
 │       └── default.nix
 ├── packages
-│   ├── berkeley-mono
+│   ├── ...
 │   │   └── default.nix
-│   └── wavemux
+│   └── README.md
 ├── programs
-│   ├── container
-│   │   └── default.nix
 │   ├── default.nix
 │   ├── desktop
 │   │   ├── default.nix
-│   │   └── kde.nix
-│   ├── dev
-│   │   └── default.nix
-│   ├── embedded
-│   │   └── default.nix
-│   ├── onedrive
-│   │   └── default.nix
-│   ├── rf
-│   │   └── default.nix
-│   ├── shell
-│   │   └── default.nix
-│   └── terminal
-│       └── default.nix
+│   │   └── (...).nix
+│   └── ...
+│       └── default.nix
 └── README.md
 ```
 
