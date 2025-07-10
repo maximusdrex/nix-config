@@ -11,13 +11,15 @@
 
   outputs = { self, nixpkgs, home-manager, ... }@inputs: {
     nixosConfigurations = {
+      # Each system needs a configuration here
+
       max-xps-modal = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
-          # Import the previous configuration.nix we used,
-          # so the old configuration file still takes effect
-          ./hosts/xps/os_config.nix
+          # Import the host module
+          ./hosts/xps
 
+          # Import the home-manager module
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
@@ -27,6 +29,7 @@
           }
         ];
       };
+
     };
   };
 }

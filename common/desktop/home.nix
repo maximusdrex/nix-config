@@ -10,14 +10,16 @@
 
   # Imports
   imports = [
+    # Generic Programs
     ../../programs
     ../../programs/shell
-    ../../programs/terminal
-    ../../programs/desktop
     ../../programs/dev
     ../../programs/container
+    ../../programs/onedrive
+    # Desktop Programs
+    ../../programs/desktop
+    ../../programs/terminal
     ../../programs/embedded
     ../../programs/rf
-    ../../programs/onedrive
   ];
 }
