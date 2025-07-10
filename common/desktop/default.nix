@@ -26,29 +26,6 @@
   # Enable network manager 
   networking.networkmanager.enable = true;
 
-  networking.networkmanager.ensureProfiles.profiles = {
-    "Wired connection 2" = {
-      connection = {
-        autoconnect-priority = "1";
-        id = "Wavemux";
-        interface-name = "wmx0";
-        type = "ethernet";
-        uuid = "d8644757-47df-3162-8177-5b4f8453e10b";
-      };
-      ethernet = {
-        mtu = 256;
-      };
-      ipv4 = {
-        address1 = "10.0.5.2/24";
-        method = "manual";
-      };
-      ipv6 = {
-        method = "disabled";
-      };
-      proxy = { };
-    };
-  };
-
   ######################
   # 4. General Linux Config
   ######################
@@ -76,6 +53,16 @@
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
+  users.extraGroups.plugdev = { };
+  users.extraUsers.max.extraGroups = [ "plugdev" "dialout" ];
+
+  users.users.max = {
+    isNormalUser = true;
+    description = "Max Schaefer";
+    extraGroups = [ "networkmanager" "wheel" "adbusers" "wireshark" "docker" ];
+  };
+
+
   ######################
   # 5. Nix Config
   ######################
@@ -84,11 +71,35 @@
   # 6. Other
   ######################
 
+  # Enable sound with pipewire.
+  # Using host config because linux sound is always host-specific...
+  services.pulseaudio.enable = false;
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    # If you want to use JACK applications, uncomment this
+    #jack.enable = true;
+
+    # use the example session manager (no others are packaged yet so this is enabled by default,
+    # no need to redefine it in your config for now)
+    #media-session.enable = true;
+  };
+
+  # Enable touchpad support (enabled default in most desktopManager).
+  # services.xserver.libinput.enable = true;
+
+  networking.firewall = rec {
+    allowedTCPPortRanges = [ { from = 1714; to = 1764; } ];
+    allowedUDPPortRanges = allowedTCPPortRanges;
+  };
+
   # Install some programs.
 
   programs.firefox.enable = true;
   programs.adb.enable = true;
-
   hardware.saleae-logic.enable = true;
 
   # Setup some custom udev rules and packages
@@ -101,7 +112,7 @@
   # Custom Packages
 
   nixpkgs.config.packageOverrides = pkgs: {
-    berkeley-mono = pkgs.callPackage ../../packages/berkeley-mono.nix { };
+    berkeley-mono = pkgs.callPackage ../../packages/berkeley-mono { };
   };
 
   environment.systemPackages = with pkgs; [
