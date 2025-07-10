@@ -9,6 +9,13 @@
   home.packages = with pkgs; [
     google-chrome
     
+    # Dev
+    jetbrains.clion
+    jetbrains.pycharm-professional
+    distrobox
+    distrobox-tui
+    wireshark
+
     # Work
     slack
     thunderbird

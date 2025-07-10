@@ -27,7 +27,7 @@
 
   programs.oh-my-posh = {
      enable = true;
-     useTheme = "easy-term";
+     useTheme = "montys";
   };
 
   programs.bash = {

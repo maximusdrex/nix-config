@@ -30,6 +30,23 @@
         ];
       };
 
+      max-hetzner-nix = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          # Import the host module
+          ./hosts/hetzner
+
+          # Import the home-manager module
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+
+            home-manager.users.max = import ./common/server/home.nix;
+          }
+        ];
+      };
+
     };
   };
 }

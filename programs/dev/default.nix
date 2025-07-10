@@ -44,17 +44,12 @@
     uv
 
     # Dev tools
-    jetbrains.clion
-    jetbrains.pycharm-professional
-    distrobox
-    distrobox-tui
     gcc_multi
     cmake
     gnumake
     ninja
     just
     inetutils
-    wireshark
     wishlist
   ];
 }
