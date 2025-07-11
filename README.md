@@ -36,6 +36,11 @@ This repository is meant to generate Nix configurations for all hosts I manage.
 │   │   └── (...).nix
 │   └── ...
 │       └── default.nix
+├── secrets (ENCRYPTED BY git-crypt)
+│   ├── wireguard
+│   │   ├── private
+│   │   └── public
+│   └── README.md
 └── README.md
 ```
 
