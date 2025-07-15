@@ -16,6 +16,9 @@
 ########################
 
 {
+  imports = [
+    ../modules/wireguard
+  ];
 
   ######################
   # 1. Bootloader
