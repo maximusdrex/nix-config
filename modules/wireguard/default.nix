@@ -24,7 +24,7 @@ in
       else [
         { 
           endpoint = "maxschaefer.me:33333";
-          publicKey = (builtins.readFile "../../secrets/wireguard/public/max-xps-hetzner");
+          publicKey = (builtins.readFile ../../secrets/wireguard/public/max-xps-hetzner);
           allowedIPs = [ "10.20.10.0/24" ];
           persistentKeepalive = 20;
         }
