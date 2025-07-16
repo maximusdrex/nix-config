@@ -27,7 +27,7 @@ in
           name = "maxschaefer.me";
           endpoint = "maxschaefer.me:33333";
           publicKey = (builtins.readFile ../../secrets/wireguard/public/max-hetzner-nix);
-          allowedIPs = [ "10.20.10.0/24" ];
+          allowedIPs = [ "10.20.0.0/24" ];
           persistentKeepalive = 20;
         }
       ];
