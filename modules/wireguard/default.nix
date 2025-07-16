@@ -17,12 +17,14 @@ in
     peers = if (lookup { host-list = wg-hosts; host = hostname; }).server
       then
         builtins.map (host: {
+          name = host.hostname;
           publicKey = 
             (builtins.readFile (../../secrets/wireguard + host.pubkeyFile));
           allowedIPs = [ (host.ip + "/32") ];
         }) (builtins.filter (host: !host.server) wg-hosts)
       else [
         { 
+          name = "maxschaefer.me";
           endpoint = "maxschaefer.me:33333";
           publicKey = (builtins.readFile ../../secrets/wireguard/public/max-hetzner-nix);
           allowedIPs = [ "10.20.10.0/24" ];
