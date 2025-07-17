@@ -8,6 +8,7 @@
   # Packages that should be installed to all devices
   home.packages = with pkgs; [
     google-chrome
+    discord
     
     # Dev
     jetbrains.clion

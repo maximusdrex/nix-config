@@ -19,4 +19,11 @@
     pubkeyFile = "/public/max-g14-nix";
     server = builtins.false;
   }
+
+  {
+    hostname = "max-iphone"; 
+    ip = "10.20.0.3";
+    pubkeyFile = "/public/max-iphone";
+    server = builtins.false;
+  }
 ]
