@@ -13,6 +13,8 @@
     # Dev
     jetbrains.clion
     jetbrains.pycharm-professional
+    jetbrains.rust-rover
+    jetbrains.writerside
     distrobox
     distrobox-tui
     wireshark
