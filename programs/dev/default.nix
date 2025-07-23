@@ -57,7 +57,5 @@
     pkg-config
     pcsclite
 
-    cargo
-    rustc
   ];
 }
