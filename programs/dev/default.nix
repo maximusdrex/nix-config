@@ -56,5 +56,6 @@
     go
     pkg-config
     pcsclite
+
   ];
 }

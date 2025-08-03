@@ -8,10 +8,12 @@
   # Packages that should be installed to all devices
   home.packages = with pkgs; [
     google-chrome
+    discord
     
     # Dev
     jetbrains.clion
     jetbrains.pycharm-professional
+    jetbrains.rust-rover
     distrobox
     distrobox-tui
     wireshark

@@ -113,10 +113,12 @@
 
   nixpkgs.config.packageOverrides = pkgs: {
     berkeley-mono = pkgs.callPackage ../../packages/berkeley-mono { };
+    active-firmware-tools = pkgs.callPackage ../../packages/active { };
   };
 
   environment.systemPackages = with pkgs; [
     berkeley-mono
+    active-firmware-tools 
   ];
 
 }
