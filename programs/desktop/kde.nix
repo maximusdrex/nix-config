@@ -29,6 +29,7 @@
     kdePackages.kio-zeroconf
     kdePackages.kjournald
     kdePackages.kleopatra
+    # kdePackages.kmail
     kdePackages.kmousetool
     kdePackages.kmplot
     kdePackages.koko
@@ -68,9 +69,21 @@
     kdePackages.karousel
     kdePackages.krohnkite
     kdePackages.kzones
-
-
+    kdePackages.pimcommon
+    kdePackages.kdepim-runtime
+    kdePackages.kdepim-addons
+    kdePackages.akonadi
+    kdePackages.akonadi-search
+    kdePackages.akonadi-calendar-tools
+    kdePackages.akonadi-calendar
+    kdePackages.akonadi-contacts
+    kdePackages.akonadi-mime
+    kdePackages.akonadiconsole
+    kdePackages.akonadi-import-wizard
+    catppuccin-kde
   ];
 
   services.kdeconnect.enable = true;
+
+
 }

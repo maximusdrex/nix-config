@@ -121,4 +121,7 @@
     active-firmware-tools 
   ];
 
+  programs.kde-pim.enable = true;
+  programs.kde-pim.kontact = true;
+  programs.kde-pim.kmail = true;
 }

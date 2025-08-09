@@ -16,7 +16,7 @@
     # nix
 
     direnv
-    nix-output-monitor
+    # nix-output-monitor
   ];
 
   programs.direnv = {
@@ -27,7 +27,8 @@
 
   programs.oh-my-posh = {
      enable = true;
-     useTheme = "montys";
+     # useTheme = "montys";
+     settings = builtins.fromJSON (builtins.unsafeDiscardStringContext (builtins.readFile ./omp_style.json));
   };
 
   programs.bash = {
