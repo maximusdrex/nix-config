@@ -25,7 +25,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
 
-            home-manager.users.max = import ./common/desktop/home.nix;
+            home-manager.users.max = import ./hosts/xps/home.nix;
           }
         ];
       };
@@ -42,7 +42,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
 
-            home-manager.users.max = import ./common/server/home.nix;
+            home-manager.users.max = import ./hosts/hetzner/home.nix;
           }
         ];
       };
@@ -59,7 +59,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
 
-            home-manager.users.max = import ./common/server/home.nix;
+            home-manager.users.max = import ./hosts/richard/home.nix;
           }
         ];
       };
