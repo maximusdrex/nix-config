@@ -18,7 +18,7 @@
 {
 
   imports = [
-    ../modules/wireguard
+    # ../modules/wireguard
   ];
   ######################
   # 1. Bootloader

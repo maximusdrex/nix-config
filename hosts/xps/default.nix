@@ -11,6 +11,7 @@
        ./hardware-configuration.nix
        ../../common/desktop
        ../../modules/wavemux
+       ../../modules/wireguard
     ];
 
   ######################

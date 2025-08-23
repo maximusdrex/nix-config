@@ -132,6 +132,8 @@
     heroic
     legendary-heroic
     umu-launcher
+    vkd3d-proton
+    dxvk
   ];
 
   # Host config
