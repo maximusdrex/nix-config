@@ -11,9 +11,16 @@
     discord
     
     # Dev
+    #(jetbrains.clion.override {
+    #  jdk = pkgs.openjdk21;
+    #})
+    #(jetbrains.pycharm-professional.override {
+    #  jdk = pkgs.openjdk21;
+    #})
+    # jetbrains.rust-rover
+    jetbrains-toolbox
     jetbrains.clion
     jetbrains.pycharm-professional
-    jetbrains.rust-rover
     distrobox
     distrobox-tui
     wireshark
@@ -23,6 +30,9 @@
     thunderbird
     qgroundcontrol
     gpu-screen-recorder-gtk
+    stm32cubemx
+    
+    betaflight-configurator
 
     # Customization
     catppuccin-kvantum
@@ -36,5 +46,15 @@
     cbonsai
     qalculate-qt
     anytype
+    nom
+
+    vlc
   ];
+
+  programs.jetbrains-remote = {
+    enable = true;
+    ides = with pkgs.jetbrains; [ clion pycharm-professional ];
+  };
+
+  programs.vscode.enable = true;
 }

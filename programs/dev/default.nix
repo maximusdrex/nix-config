@@ -57,5 +57,6 @@
     pkg-config
     pcsclite
 
+    devcontainer
   ];
 }
