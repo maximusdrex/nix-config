@@ -85,5 +85,4 @@
 
   services.kdeconnect.enable = true;
 
-
 }

@@ -38,9 +38,26 @@
   # 3. Networking
   ######################
 
+  services.avahi = {
+    enable = true;
+    nssmdns = true;
+    allowPointToPoint = true;
+    openFirewall = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      domain = true;
+      hinfo = true;
+      userServices = true;
+      workstation = true;
+    };
+  };
+
   ######################
   # 4. General Config
   ######################
+
+  programs.kde-pim.merkuro = true;
 
   ######################
   # 6. Other

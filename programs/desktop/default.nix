@@ -31,6 +31,7 @@
     qgroundcontrol
     gpu-screen-recorder-gtk
     stm32cubemx
+    segger-jlink
     
     betaflight-configurator
 
@@ -47,6 +48,8 @@
     qalculate-qt
     anytype
     nom
+    codex
+    arduino-ide
 
     vlc
   ];

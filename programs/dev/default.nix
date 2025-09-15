@@ -58,5 +58,6 @@
     pcsclite
 
     devcontainer
+    wl-clipboard-rs
   ];
 }

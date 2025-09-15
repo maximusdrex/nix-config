@@ -91,22 +91,26 @@
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
 
-  networking.firewall = rec {
-    allowedTCPPortRanges = [ { from = 1714; to = 1764; } ];
-    allowedUDPPortRanges = allowedTCPPortRanges;
-  };
+  # networking.firewall = rec {
+  #   allowedTCPPortRanges = [ { from = 1714; to = 1764; } ];
+  #   allowedUDPPortRanges = allowedTCPPortRanges;
+  #   allowedUDPPorts = [ 5353 ];
+  # };
+  networking.firewall.enable = false;
 
   # Install some programs.
 
   programs.firefox.enable = true;
   programs.adb.enable = true;
   hardware.saleae-logic.enable = true;
+  programs.nix-ld.enable = true;
 
   # Setup some custom udev rules and packages
 
   services.udev.packages = [ pkgs.openocd ];
   services.udev.extraRules = ''
     SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0002", NAME="wmx0"
+    ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55de", MODE="660", GROUP="plugdev", TAG+="uaccess"
   '';
 
   # Custom Packages
@@ -124,4 +128,9 @@
   programs.kde-pim.enable = true;
   programs.kde-pim.kontact = true;
   programs.kde-pim.kmail = true;
+
+  nixpkgs.config.permittedInsecurePackages = [
+    "segger-jlink-qt4-810"
+  ];
+  nixpkgs.config.segger-jlink.acceptLicense = true;
 }
