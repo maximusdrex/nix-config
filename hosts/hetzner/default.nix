@@ -11,6 +11,7 @@
        ./hardware-configuration.nix
        ../../common/server
        ../../modules/wireguard
+       ../../modules/wireguard/peers-export.nix
        ../../modules/edge-proxy
     ];
 
@@ -43,6 +44,8 @@
     };
     # Add more sites later by extending 'sites'
   };
+
+  users.users.nginx.extraGroups = [ "acme" ];
 
   # Host config
 

@@ -1,70 +1,91 @@
 { lib, config, pkgs, ... }:
 
 let
-  # Reuse your single source of truth for WG peers
-  wgHosts = import ../wireguard/wg-hosts.nix;  # path relative to this file
+  cfg = config.services.edgeProxy;
 
-  # Build a mapping like { "max-richard-nix.wg" = "10.20.0.6"; ... }
+  # Read peers from our exporter module
+  peerList = config.networking.wireguardPeers or [ ];
+
+  # Correct: IP -> [ hostnames... ] (so /etc/hosts lines are "IP name")
   wgHostsMap =
-    builtins.listToAttrs
-      (builtins.map (h: { name = "${h.hostname}.wg"; value = [ h.ip ]; }) wgHosts);
+    builtins.listToAttrs (builtins.map
+      (p: { name = p.ip; value = [ "${p.hostname}.wg" ]; })
+      peerList);
 
-  # For resolving a plain hostname to its .wg name
   mkWgName = host: "${host}.wg";
 
-  cfg = config.services.edgeProxy;
+  # Optional helper to look up an IP by hostname (for "inline IP" mode)
+  peerIP = host:
+    let m = lib.findFirst (x: x.hostname == host) null peerList;
+    in if m == null then
+         (throw "edge-proxy: upstreamHost '${host}' not found in networking.wireguardPeers")
+       else m.ip;
+
 in
 {
   options.services.edgeProxy = {
-    enable = lib.mkEnableOption "Edge reverse proxy (TLS) that tunnels to services via WireGuard";
+    enable = lib.mkEnableOption "Nginx + ACME edge proxy over WireGuard";
 
     acmeEmail = lib.mkOption {
       type = lib.types.str;
-      description = "Contact email for Let's Encrypt / ACME.";
+      description = "Email for Let's Encrypt/ACME";
     };
 
-    # sites."public.host.name" = { upstreamHost = "max-richard-nix"; upstreamPort = 8123; extraLocations = { ... }; }
+    # If true, use the peer IPs directly in proxy_pass (no runtime name resolution).
+    resolveUpstreamsAtBuild = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Inline upstream IPs at build-time instead of using *.wg hostnames.";
+    };
+
+    # sites."public.domain" = { upstreamHost = "peer-hostname"; upstreamPort = 8123; extraLocations = {...}; }
     sites = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.submodule ({ name, ... }: {
+      type = lib.types.attrsOf (lib.types.submodule ({ ... }: {
         options = {
-          upstreamHost = lib.mkOption { type = lib.types.str; description = "WG peer hostname (from wg-hosts.nix)."; };
-          upstreamPort = lib.mkOption { type = lib.types.port; description = "Upstream service port on the peer."; };
+          upstreamHost = lib.mkOption {
+            type = lib.types.str;
+            description = "WG peer hostname from wg-hosts.nix (e.g., max-richard-nix)";
+          };
+          upstreamPort = lib.mkOption {
+            type = lib.types.port;
+            description = "Port on the peer (e.g., 8123)";
+          };
           extraLocations = lib.mkOption {
             type = lib.types.attrsOf (lib.types.submodule {
               options = {
-                proxyPass = lib.mkOption { type = lib.types.str; description = "Proxy pass URL (http://host.wg:port/path)."; };
+                proxyPass = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Full proxy_pass URL (e.g., http://host.wg:port/path)";
+                };
               };
             });
             default = {};
-            description = "Optional additional locations for this vhost.";
+            description = "Optional extra locations";
           };
         };
       }));
       default = {};
-      description = "Map of public hostnames to WireGuard upstreams.";
+      description = "Public hostnames to proxy to WG peers";
     };
   };
 
   config = lib.mkIf cfg.enable {
-
-    ############################
-    # Local name resolution for WG peers (no hard-coded IPs)
-    ############################
+    ########################################
+    # Make *.wg resolvable for nginx at start
+    ########################################
     networking.hosts = wgHostsMap;
-    # e.g. ensures entries like: "max-richard-nix.wg" → 10.20.0.6
-    # derived from modules/wireguard/wg-hosts.nix
 
-    ############################
+    ########################################
     # ACME / TLS
-    ############################
+    ########################################
     security.acme = {
       acceptTerms = true;
       defaults.email = cfg.acmeEmail;
     };
 
-    ############################
-    # Nginx (TLS termination + proxy to WG)
-    ############################
+    ########################################
+    # Nginx
+    ########################################
     services.nginx = {
       enable = true;
       recommendedGzipSettings = true;
@@ -73,36 +94,55 @@ in
       recommendedTlsSettings = true;
 
       virtualHosts =
-        lib.mapAttrs (publicHost: site: {
-          enableACME = true;
-          forceSSL = true;
+        lib.mapAttrs (publicHost: site:
+          let
+            upstreamHostOrIP =
+              if cfg.resolveUpstreamsAtBuild
+              then peerIP site.upstreamHost
+              else mkWgName site.upstreamHost;
 
-          # Websocket/long-lived connections (e.g. HA)
-          extraConfig = ''
-            proxy_buffering off;
-            proxy_read_timeout 3600s;
-            proxy_send_timeout 3600s;
-          '';
+            upstreamURL = "http://${upstreamHostOrIP}:${toString site.upstreamPort}";
+          in {
+            serverName = publicHost;
+            enableACME = true;
+            forceSSL = true;
 
-          locations =
-            {
-              "/" = {
-                proxyPass = "http://${mkWgName site.upstreamHost}:${toString site.upstreamPort}";
+            listen = [
+              { addr = "0.0.0.0"; port = 80; }
+              { addr = "0.0.0.0"; port = 443; ssl = true; }
+              { addr = "[::]";     port = 80; }
+              { addr = "[::]";     port = 443; ssl = true; }
+            ];
+
+            extraConfig = ''
+              proxy_buffering off;
+              proxy_read_timeout 3600s;
+              proxy_send_timeout 3600s;
+
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection $connection_upgrade;
+            '';
+
+            locations =
+              {
+                "/" = {
+                  proxyPass = upstreamURL;
+                  proxyWebsockets = true;
+                };
+              }
+              // lib.mapAttrs (_loc: locConf: {
+                proxyPass = locConf.proxyPass;
                 proxyWebsockets = true;
-              };
-            }
-            // lib.mapAttrs (loc: locConf: {
-              proxyPass = locConf.proxyPass;
-              proxyWebsockets = true;
-            }) site.extraLocations;
-        })
-        cfg.sites;
+              }) site.extraLocations;
+          }
+        ) cfg.sites;
     };
 
-    # Open 80/443 if you ever turn the firewall back on this host
-    networking.firewall = {
-      allowedTCPPorts = [ 80 443 ];
-    };
+    networking.firewall.allowedTCPPorts = [ 80 443 ];
   };
 }
 
