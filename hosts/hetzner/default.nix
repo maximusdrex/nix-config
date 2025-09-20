@@ -52,18 +52,15 @@
     branch   = "main";
     workTree = "/var/lib/nix-deploy/work";
 
-    # If your repo is private and you pull via SSH:
-    sshKeyPath = /etc/nixos/secrets/deploy_key;  # 0600, root:root
-
     webhook = {
       enable = true;
       address = "127.0.0.1";
       port = 9099;
       # This file lives *inside the repo* and is already decrypted by your setup
-      secretFilePath = ../../secrets/deploy/webhook_secret.txt;
+      secretFilePath = "/var/lib/nix-deploy/work/secrets/deploy/webhook_secret.txt";
     };
 
-    timer.enable = true;        # safety net
+    timer.enable = false;        # safety net
     timer.onCalendar = "daily"; # or "hourly"
   };
 

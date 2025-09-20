@@ -4,12 +4,12 @@ let
 
   deployScript = pkgs.writeShellApplication {
     name = "nix-deploy-run";
-    runtimeInputs = [ pkgs.git pkgs.jq pkgs.nixFlakes pkgs.coreutils ];
+    runtimeInputs = [ pkgs.git pkgs.jq pkgs.nixVersions.stable pkgs.coreutils ];
     text = ''
       set -euo pipefail
       umask 0022
 
-      BRANCH="${1:-${cfg.branch}}"
+      BRANCH="''${1:-${cfg.branch}}"
       REPO="${cfg.repoUrl}"
       WORK="${cfg.workTree}"
 
@@ -25,16 +25,13 @@ let
       git -C "$WORK" checkout -qf "origin/$BRANCH"
       git -C "$WORK" reset --hard "origin/$BRANCH"
 
-      # At this point your existing git-crypt filters/hooks should have
-      # produced decrypted files in the work tree automatically.
-
       echo "[deploy] nix flake check…"
       nix --extra-experimental-features 'nix-command flakes' flake check "$WORK"
 
       echo "[deploy] enumerating nixosConfigurations…"
       mapfile -t HOSTS < <(nix --extra-experimental-features 'nix-command flakes' \
         eval --json "$WORK#nixosConfigurations" | jq -r 'keys[]')
-      echo "[deploy] found: ${HOSTS[*]}"
+      echo "[deploy] found: ''${HOSTS[*]}"
 
       echo "[deploy] building every host…"
       for h in "''${HOSTS[@]}"; do
@@ -46,7 +43,6 @@ let
       echo "[deploy] switching this VPS ($(hostname))…"
       nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
 
-      # Optional: bounce webhook so it picks up any rotated secret file
       if systemctl is-active --quiet git-deploy-webhook.service; then
         systemctl try-restart git-deploy-webhook.service || true
       fi
@@ -118,7 +114,7 @@ in
     workTree = lib.mkOption { type = lib.types.str; default = "/var/lib/nix-deploy/work"; };
 
     sshKeyPath = lib.mkOption {
-      type = lib.types.nullOr lib.types.path; default = null;
+      type = lib.types.nullOr lib.types.str; default = null;
       description = "Optional private key to pull a private repo via SSH.";
     };
 
