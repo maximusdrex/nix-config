@@ -32,7 +32,6 @@
     gpu-screen-recorder-gtk
     stm32cubemx
     segger-jlink
-    
     betaflight-configurator
 
     # Customization
@@ -42,7 +41,7 @@
     spotify
     spicetify-cli
     keepassxc
-    rerun
+    # rerun
     gdrive
     cbonsai
     qalculate-qt

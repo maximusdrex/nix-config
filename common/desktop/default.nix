@@ -54,7 +54,7 @@
   services.printing.enable = true;
 
   users.extraGroups.plugdev = { };
-  users.extraUsers.max.extraGroups = [ "plugdev" "dialout" ];
+  users.extraUsers.max.extraGroups = [ "plugdev" "dialout" "wireshark" ];
 
   users.users.max = {
     isNormalUser = true;
@@ -104,6 +104,7 @@
   programs.adb.enable = true;
   hardware.saleae-logic.enable = true;
   programs.nix-ld.enable = true;
+  programs.wireshark.enable = true;
 
   # Setup some custom udev rules and packages
 

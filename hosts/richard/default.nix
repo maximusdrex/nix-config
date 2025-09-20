@@ -11,6 +11,7 @@
        ./hardware-configuration.nix
        ../../common/server
        ../../modules/wireguard
+       ../../modules/home-assistant
     ];
 
   ######################
@@ -32,6 +33,14 @@
   ######################
   # 6. Other
   ######################
+
+  services.localHomeAssistant = {
+    enable = true;
+    openFirewall = true;
+    trustedProxyWireGuardIP = "10.20.0.1";  # Hetzner VPS per wg-hosts.nix
+    # listenAddress = "0.0.0.0";            # default is fine
+    # port = 8123;                           # default is fine
+  };
 
   # Host config
 
