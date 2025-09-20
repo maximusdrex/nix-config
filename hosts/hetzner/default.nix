@@ -13,6 +13,7 @@
        ../../modules/wireguard
        ../../modules/wireguard/peers-export.nix
        ../../modules/edge-proxy
+       ../../modules/deploy
     ];
 
   ######################
@@ -43,6 +44,36 @@
       upstreamPort = 8123;                # Home Assistant
     };
     # Add more sites later by extending 'sites'
+  };
+
+  services.gitDeploy = {
+    enable   = true;
+    repoUrl  = "git@github.com:maximusdrex/nix-config.git";  # or any git provider
+    branch   = "main";
+    workTree = "/var/lib/nix-deploy/work";
+
+    # If your repo is private and you pull via SSH:
+    sshKeyPath = /etc/nixos/secrets/deploy_key;  # 0600, root:root
+
+    webhook = {
+      enable = true;
+      address = "127.0.0.1";
+      port = 9099;
+      # This file lives *inside the repo* and is already decrypted by your setup
+      secretFilePath = ../../secrets/deploy/webhook_secret.txt;
+    };
+
+    timer.enable = true;        # safety net
+    timer.onCalendar = "daily"; # or "hourly"
+  };
+
+  services.nginx.virtualHosts."maxschaefer.me".locations."/hooks/deploy" = {
+    proxyPass = "http://127.0.0.1:9099";
+    extraConfig = ''
+      limit_except POST { deny all; }
+      client_max_body_size 256k;
+      if ($http_x_deploy_token = "") { return 403; }
+    '';
   };
 
   users.users.nginx.extraGroups = [ "acme" ];
