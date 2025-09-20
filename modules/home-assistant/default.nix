@@ -31,6 +31,9 @@ in
         "webostv"
         "met"            # Norwegian Met weather
         "radio_browser"
+        "litterrobot"
+        "homekit"
+        "zeroconf"
       ];
       description = "Home Assistant integrations to compile in.";
     };
@@ -94,8 +97,8 @@ in
     ############################
     networking.firewall = lib.mkIf cfg.openFirewall {
       enable = true;
-      allowedTCPPorts = [ cfg.port 5540 ];
-      allowedUDPPorts = [ 1900 5353 5540 ];
+      allowedTCPPorts = [ cfg.port 5540 21063 ];
+      allowedUDPPorts = [ 1900 5353 5540 5353 ];
     };
 
     networking.enableIPv6 = lib.mkDefault true;
