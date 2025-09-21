@@ -1,10 +1,18 @@
 { lib, pkgs, config, ... }:
+
 let
   cfg = config.services.gitDeploy;
 
   deployScript = pkgs.writeShellApplication {
     name = "nix-deploy-run";
-    runtimeInputs = [ pkgs.git pkgs.jq pkgs.nixVersions.stable pkgs.coreutils ];
+    runtimeInputs = [
+      pkgs.git
+      pkgs.jq
+      pkgs.nixVersions.stable
+      pkgs.coreutils
+      pkgs.openssh
+      pkgs.git-crypt
+    ];
     text = ''
       set -euo pipefail
       umask 0022
@@ -12,9 +20,13 @@ let
       BRANCH="''${1:-${cfg.branch}}"
       REPO="${cfg.repoUrl}"
       WORK="${cfg.workTree}"
+      KEY_FILE="${cfg.gitCrypt.keyFilePath}"
 
       echo "[deploy] start $(date -Is) branch=$BRANCH repo=$REPO"
       mkdir -p "$WORK"
+
+      # Make ssh non-interactive on first contact with the remote
+      export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new'
 
       if [ ! -d "$WORK/.git" ]; then
         git -C "$WORK" init
@@ -24,6 +36,16 @@ let
       git -C "$WORK" fetch --prune origin
       git -C "$WORK" checkout -qf "origin/$BRANCH"
       git -C "$WORK" reset --hard "origin/$BRANCH"
+
+      # ----- git-crypt unlock (key-file mode, no GPG) -----
+      ${lib.optionalString cfg.gitCrypt.enable ''
+      if [ -n "''${KEY_FILE:-}" ] && [ -r "''${KEY_FILE}" ]; then
+        echo "[deploy] unlocking repo with git-crypt key-file…"
+        ( cd "$WORK" && git-crypt unlock "''${KEY_FILE}" )
+      else
+        echo "[deploy] WARNING: git-crypt key file missing or unreadable: ''${KEY_FILE}" >&2
+      fi
+      ''}
 
       echo "[deploy] nix flake check…"
       nix --extra-experimental-features 'nix-command flakes' flake check "$WORK"
@@ -43,6 +65,7 @@ let
       echo "[deploy] switching this VPS ($(hostname))…"
       nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
 
+      # reload webhook to pick up rotated secret from repo
       if systemctl is-active --quiet git-deploy-webhook.service; then
         systemctl try-restart git-deploy-webhook.service || true
       fi
@@ -51,6 +74,7 @@ let
     '';
   };
 
+  # Tiny webhook server; reads a secret from a file in the *decrypted* work tree.
   webhookPy = pkgs.writeText "git-webhook.py" ''
     #!/usr/bin/env python3
     import hmac, hashlib, os
@@ -67,13 +91,14 @@ let
           with open(SECRET_FILE, "rb") as f:
             return f.read().strip()
         except Exception:
-            return b""
+          return b""
       return SECRET.encode()
 
     def ok(w, code=200, body=b"OK"):
       w.send_response(code); w.end_headers(); w.wfile.write(body)
 
-    def bad(w, code=403, body=b"FORBIDDEN"): ok(w, code, body)
+    def bad(w, code=403, body=b"FORBIDDEN"):
+      ok(w, code, body)
 
     class H(BaseHTTPRequestHandler):
       def do_POST(self):
@@ -81,13 +106,13 @@ let
         body = self.rfile.read(length) if length else b""
         secret = load_secret()
 
-        # Provider-agnostic shared header
+        # Generic shared header
         token = self.headers.get("X-Deploy-Token", "").encode()
         if secret and hmac.compare_digest(token, secret):
           os.system("systemctl start " + UNIT)
           return ok(self, 202, b"Triggered")
 
-        # GitHub-style HMAC (harmless if other providers send it too)
+        # GitHub-style HMAC (harmless for other providers)
         sig = self.headers.get("X-Hub-Signature-256", "")
         if secret and sig.startswith("sha256="):
           mac = hmac.new(secret, body, hashlib.sha256).hexdigest()
@@ -104,29 +129,38 @@ let
       port = int(os.environ.get("WEBHOOK_PORT","9099"))
       HTTPServer((addr, port), H).serve_forever()
   '';
-
 in
 {
   options.services.gitDeploy = {
-    enable  = lib.mkEnableOption "provider-agnostic pull→check→build-all→switch";
+    enable  = lib.mkEnableOption "provider-agnostic pull→unlock→check→build-all→switch";
     repoUrl = lib.mkOption { type = lib.types.str; description = "git URL (ssh or https)"; };
     branch  = lib.mkOption { type = lib.types.str; default = "main"; };
     workTree = lib.mkOption { type = lib.types.str; default = "/var/lib/nix-deploy/work"; };
 
+    # RUNTIME string path → pure evaluation (no /etc reads at eval time)
     sshKeyPath = lib.mkOption {
-      type = lib.types.nullOr lib.types.str; default = null;
-      description = "Optional private key to pull a private repo via SSH.";
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Filesystem path to SSH key at runtime (e.g. /run/secrets/deploy_key).";
+    };
+
+    gitCrypt = {
+      enable = lib.mkOption { type = lib.types.bool; default = true; };
+      keyFilePath = lib.mkOption {
+        type = lib.types.str;
+        default = "/run/secrets/git-crypt.key";
+        description = "Runtime path to 'git-crypt export-key' output.";
+      };
     };
 
     webhook = {
       enable = lib.mkOption { type = lib.types.bool; default = true; };
       address = lib.mkOption { type = lib.types.str; default = "127.0.0.1"; };
       port    = lib.mkOption { type = lib.types.port; default = 9099; };
-      # Point to the secret **inside the repo** (already decrypted by your setup)
       secretFilePath = lib.mkOption {
         type = lib.types.str;
         default = "/var/lib/nix-deploy/work/secrets/deploy/webhook_secret.txt";
-        description = "Path to shared-secret file within the work tree.";
+        description = "Path to the shared secret file inside the decrypted repo.";
       };
     };
 
@@ -139,7 +173,7 @@ in
   config = lib.mkIf cfg.enable {
     programs.ssh.askPassword = false;
 
-    # Use a deploy key for pulling (if needed)
+    # Point the ssh client at your runtime key (kept as a string => pure eval)
     environment.etc."ssh/ssh_config.d/99-gitdeploy.conf".text =
       lib.optionalString (cfg.sshKeyPath != null) ''
         Host *
@@ -147,9 +181,21 @@ in
           IdentitiesOnly yes
       '';
 
-    systemd.tmpfiles.rules = [ "d ${cfg.workTree} 0755 root root - -" ];
+    # Working dir (owned by root)
+    systemd.tmpfiles.rules =
+      let
+        # Pure string-based dirname (no path coercion)
+        dirOf = s: lib.removeSuffix "/${lib.last (lib.splitString "/" s)}" s;
 
-    # Templated service → systemctl start nix-deploy@main
+        secretDirs = lib.unique (
+          lib.optional (cfg.sshKeyPath != null) (dirOf cfg.sshKeyPath)
+          ++ [ (dirOf cfg.gitCrypt.keyFilePath) ]
+        );
+      in
+        (map (d: "d ${d} 0700 root root - -") secretDirs)
+        ++ [ "d ${cfg.workTree} 0755 root root - -" ];
+
+    # Templated deploy service → systemctl start nix-deploy@main
     systemd.services."nix-deploy@" = {
       description = "Build all flakes and switch this VPS (branch: %i)";
       after = [ "network-online.target" ];
@@ -162,20 +208,20 @@ in
       };
     };
 
-    # Timer fallback
+    # Daily timer (safety net)
     systemd.timers."nix-deploy@${cfg.branch}" = lib.mkIf cfg.timer.enable {
       wantedBy = [ "timers.target" ];
       timerConfig = { OnCalendar = cfg.timer.onCalendar; Persistent = true; };
     };
     systemd.services."nix-deploy@${cfg.branch}" = lib.mkIf cfg.timer.enable {
-      description = "Scheduled deploy (pull/check/build/switch)";
+      description = "Scheduled deploy (pull/unlock/check/build/switch)";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${deployScript}/bin/nix-deploy-run ${cfg.branch}";
       };
     };
 
-    # Webhook (reads secret from the repo path)
+    # Webhook (reads secret from the decrypted repo)
     systemd.services.git-deploy-webhook = lib.mkIf cfg.webhook.enable {
       description = "Git deploy webhook listener (file-based secret in repo)";
       after = [ "network-online.target" ];

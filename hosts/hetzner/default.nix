@@ -59,6 +59,11 @@
       # This file lives *inside the repo* and is already decrypted by your setup
       secretFilePath = "/var/lib/nix-deploy/work/secrets/deploy/webhook_secret.txt";
     };
+    gitCrypt = {
+      enable      = true;
+      keyFilePath = "/var/lib/nix-deploy/secrets/git-crypt.key";
+    };
+    sshKeyPath = "/var/lib/nix-deploy/secrets/deploy_key";
 
     timer.enable = false;        # safety net
     timer.onCalendar = "daily"; # or "hourly"
