@@ -65,6 +65,10 @@
     };
     sshKeyPath = "/var/lib/nix-deploy/secrets/deploy_key";
 
+    buildAll = false;         # don’t realize any outputs
+    switchSelf = false;       # don’t switch the VPS
+    validateMode = "dry-run"; # default; or "eval" to be even lighter
+
     timer.enable = false;        # safety net
     timer.onCalendar = "daily"; # or "hourly"
   };

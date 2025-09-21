@@ -5,39 +5,45 @@ let
 
   deployScript = pkgs.writeShellApplication {
     name = "nix-deploy-run";
-    runtimeInputs = [ pkgs.git pkgs.jq pkgs.nixVersions.stable pkgs.coreutils pkgs.openssh pkgs.git-crypt ];
+    runtimeInputs = [
+      pkgs.git
+      pkgs.jq
+      pkgs.nixVersions.stable
+      pkgs.coreutils
+      pkgs.openssh
+      pkgs.git-crypt
+    ];
     text = ''
       set -euo pipefail
       umask 0022
-
+  
       BRANCH="''${1:-${cfg.branch}}"
       REPO="${cfg.repoUrl}"
       WORK="${cfg.workTree}"
       KEY_FILE="${cfg.gitCrypt.keyFilePath}"
-
-      echo "[deploy] start $(date -Is) branch=$BRANCH repo=$REPO"
-      mkdir -p "$WORK"
-
-      # Assign SSH_KEY only if configured (avoid literal cfg.sshKeyPath:-)
       SSH_KEY=""
       ${lib.optionalString (cfg.sshKeyPath != null) ''SSH_KEY="${cfg.sshKeyPath}"''}
-
+  
+      echo "[deploy] start $(date -Is) branch=$BRANCH repo=$REPO"
+      mkdir -p "$WORK"
+  
       # Use provided SSH key explicitly (avoid relying on ssh_config includes)
       if [ -n "''${SSH_KEY}" ]; then
         export GIT_SSH_COMMAND="ssh -i ''${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
       else
         export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new'
       fi
-
+  
       if [ ! -d "$WORK/.git" ]; then
         git -C "$WORK" init
         git -C "$WORK" remote add origin "$REPO"
       fi
-
+  
       git -C "$WORK" fetch --prune origin
       git -C "$WORK" checkout -qf "origin/$BRANCH"
       git -C "$WORK" reset --hard "origin/$BRANCH"
-
+  
+      # ----- git-crypt unlock (key-file mode, no GPG) -----
       ${lib.optionalString cfg.gitCrypt.enable ''
       if [ -n "''${KEY_FILE:-}" ] && [ -r "''${KEY_FILE}" ]; then
         echo "[deploy] unlocking repo with git-crypt key-file…"
@@ -46,32 +52,49 @@ let
         echo "[deploy] WARNING: git-crypt key file missing or unreadable: ''${KEY_FILE}" >&2
       fi
       ''}
-
-      echo "[deploy] nix flake check…"
-      nix --extra-experimental-features 'nix-command flakes' flake check "$WORK"
-
+  
+      echo "[deploy] nix flake check (eval only)…"
+      nix --extra-experimental-features 'nix-command flakes' flake check "$WORK" --no-build || true
+  
       echo "[deploy] enumerating nixosConfigurations…"
       mapfile -t HOSTS < <(nix --extra-experimental-features 'nix-command flakes' \
-        eval --json "$WORK#nixosConfigurations" | jq -r 'keys[]')
+        eval --json "$WORK#nixosConfigurations" --apply builtins.attrNames | jq -r '.[]')
       echo "[deploy] found: ''${HOSTS[*]}"
-
-      echo "[deploy] building every host…"
-      for h in "''${HOSTS[@]}"; do
-        echo "[deploy]   build $h"
-        nix --extra-experimental-features 'nix-command flakes' \
-          build --print-out-paths "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" >/dev/null
-      done
-
-      echo "[deploy] switching this VPS ($(hostname))…"
-      nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
-
-      if systemctl is-active --quiet git-deploy-webhook.service; then
-        systemctl try-restart git-deploy-webhook.service || true
-      fi
-
+  
+      ${if cfg.buildAll then ''
+        echo "[deploy] building every host (realize)…"
+        for h in "''${HOSTS[@]}"; do
+          echo "[deploy]   build $h"
+          nix --extra-experimental-features 'nix-command flakes' \
+            build --print-out-paths "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" >/dev/null
+        done
+      '' else if cfg.validateMode == "dry-run" then ''
+        echo "[deploy] validating every host (dry-run, no outputs)…"
+        for h in "''${HOSTS[@]}"; do
+          echo "[deploy]   check $h"
+          nix --extra-experimental-features 'nix-command flakes' \
+            build --no-link --dry-run "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" || exit 1
+        done
+      '' else ''
+        echo "[deploy] eval-only validation of drvPaths…"
+        for h in "''${HOSTS[@]}"; do
+          nix --extra-experimental-features 'nix-command flakes' \
+            eval --raw "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel.drvPath" >/dev/null || exit 1
+        done
+      ''}
+  
+      ${lib.optionalString cfg.switchSelf ''
+        echo "[deploy] switching this VPS (${config.networking.hostName})…"
+        /run/current-system/sw/bin/nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
+        if systemctl is-active --quiet git-deploy-webhook.service; then
+          systemctl try-restart git-deploy-webhook.service || true
+        fi
+      ''}
+  
       echo "[deploy] done $(date -Is)"
     '';
   };
+
 
   # Tiny webhook server; reads a secret from a file in the *decrypted* work tree.
   webhookPy = pkgs.writeText "git-webhook.py" ''
@@ -166,6 +189,23 @@ in
     timer = {
       enable = lib.mkOption { type = lib.types.bool; default = true; };
       onCalendar = lib.mkOption { type = lib.types.str; default = "daily"; };
+    };
+
+    # Control how aggressive the run is
+    buildAll = lib.mkOption {
+      type = lib.types.bool;
+      default = false;   # set false to avoid materializing closures
+      description = "If true, realize (build) all nixosConfigurations; otherwise only validate.";
+    };
+    switchSelf = lib.mkOption {
+      type = lib.types.bool;
+      default = false;   # set false to skip nixos-rebuild switch on the VPS
+      description = "If true, switch this VPS after a successful run.";
+    };
+    validateMode = lib.mkOption {
+      type = lib.types.enum [ "dry-run" "eval" ];
+      default = "dry-run";
+      description = "Validation style when buildAll=false: dry-run build (no outputs) or eval-only.";
     };
   };
 
