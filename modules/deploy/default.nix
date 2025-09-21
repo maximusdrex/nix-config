@@ -5,14 +5,7 @@ let
 
   deployScript = pkgs.writeShellApplication {
     name = "nix-deploy-run";
-    runtimeInputs = [
-      pkgs.git
-      pkgs.jq
-      pkgs.nixVersions.stable
-      pkgs.coreutils
-      pkgs.openssh
-      pkgs.git-crypt
-    ];
+    runtimeInputs = [ pkgs.git pkgs.jq pkgs.nixVersions.stable pkgs.coreutils pkgs.openssh pkgs.git-crypt ];
     text = ''
       set -euo pipefail
       umask 0022
@@ -25,8 +18,16 @@ let
       echo "[deploy] start $(date -Is) branch=$BRANCH repo=$REPO"
       mkdir -p "$WORK"
 
-      # Make ssh non-interactive on first contact with the remote
-      export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new'
+      # Assign SSH_KEY only if configured (avoid literal cfg.sshKeyPath:-)
+      SSH_KEY=""
+      ${lib.optionalString (cfg.sshKeyPath != null) ''SSH_KEY="${cfg.sshKeyPath}"''}
+
+      # Use provided SSH key explicitly (avoid relying on ssh_config includes)
+      if [ -n "''${SSH_KEY}" ]; then
+        export GIT_SSH_COMMAND="ssh -i ''${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+      else
+        export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new'
+      fi
 
       if [ ! -d "$WORK/.git" ]; then
         git -C "$WORK" init
@@ -37,7 +38,6 @@ let
       git -C "$WORK" checkout -qf "origin/$BRANCH"
       git -C "$WORK" reset --hard "origin/$BRANCH"
 
-      # ----- git-crypt unlock (key-file mode, no GPG) -----
       ${lib.optionalString cfg.gitCrypt.enable ''
       if [ -n "''${KEY_FILE:-}" ] && [ -r "''${KEY_FILE}" ]; then
         echo "[deploy] unlocking repo with git-crypt key-file…"
@@ -65,7 +65,6 @@ let
       echo "[deploy] switching this VPS ($(hostname))…"
       nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
 
-      # reload webhook to pick up rotated secret from repo
       if systemctl is-active --quiet git-deploy-webhook.service; then
         systemctl try-restart git-deploy-webhook.service || true
       fi
