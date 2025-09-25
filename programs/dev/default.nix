@@ -41,7 +41,7 @@
     linuxConsoleTools
 
     # Python
-    python3Full
+    python3
     uv
 
     # Dev tools
