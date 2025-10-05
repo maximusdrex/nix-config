@@ -151,6 +151,14 @@ let
       port = int(os.environ.get("WEBHOOK_PORT","9099"))
       HTTPServer((addr, port), H).serve_forever()
   '';
+  telemetryReportPath =
+    let
+      teleCfg = lib.attrByPath [ "services" "homeSiteTelemetry" ] null config;
+    in if teleCfg != null && teleCfg.enable && teleCfg.deployReport.enable then
+      (if teleCfg.deployReport.sourceFile != null
+       then teleCfg.deployReport.sourceFile
+       else "${teleCfg.stateDir}/deploy-report.json")
+    else null;
 in
 {
   options.services.gitDeploy = {
@@ -244,6 +252,9 @@ in
         User = "root";
         ExecStart = "${deployScript}/bin/nix-deploy-run %i";
         WorkingDirectory = cfg.workTree;
+        Environment =
+          lib.optionals (telemetryReportPath != null)
+            [ "HOME_SITE_DEPLOY_REPORT_PATH=${telemetryReportPath}" ];
       };
     };
 
@@ -257,6 +268,9 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${deployScript}/bin/nix-deploy-run ${cfg.branch}";
+        Environment =
+          lib.optionals (telemetryReportPath != null)
+            [ "HOME_SITE_DEPLOY_REPORT_PATH=${telemetryReportPath}" ];
       };
     };
 
@@ -282,4 +296,3 @@ in
     };
   };
 }
-

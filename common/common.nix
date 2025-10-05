@@ -18,6 +18,7 @@
 {
 
   imports = [
+    ../modules/home-site-telemetry
     # ../modules/wireguard
   ];
   ######################
@@ -116,5 +117,11 @@
   ######################
   # 6. Other
   ######################
+
+  services.homeSiteTelemetry = {
+    enable = true;
+    baseUrl = "https://maxschaefer.me";
+    deviceStatus.enable = true;
+  };
 
 }

@@ -36,6 +36,16 @@
   # 6. Other
   ######################
 
+  services.homeSiteTelemetry.deployReport = {
+    enable = true;
+    sourceFile = "/var/lib/nix-deploy/work/telemetry/deploy-report.json";
+    interval = "7min";
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /var/lib/nix-deploy/work/telemetry 0755 root root - -"
+  ];
+
   services.edgeProxy = {
     enable = true;
     acmeEmail = "max@theschaefers.com";        # change to your email
