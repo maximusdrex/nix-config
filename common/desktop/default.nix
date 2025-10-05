@@ -131,7 +131,8 @@
   programs.kde-pim.kmail = true;
 
   nixpkgs.config.permittedInsecurePackages = [
-    "segger-jlink-qt4-810"
+    "segger-jlink-qt4-824"
   ];
+
   nixpkgs.config.segger-jlink.acceptLicense = true;
 }

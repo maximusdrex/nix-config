@@ -10,6 +10,8 @@
     [ 
        ./hardware-configuration.nix
        ../../common/desktop
+       ../../modules/wavemux
+       ../../modules/wireguard
     ];
 
   ######################
@@ -58,6 +60,7 @@
   # 4. General Config
   ######################
 
+  programs.kde-pim.merkuro = true;
 
   ######################
   # 6. Other
@@ -105,24 +108,6 @@
   hardware.graphics.enable32Bit = true;
 
   # services.xserver.videoDrivers = [ "nvidia" ];
-
-  # hardware.nvidia = {
-  #   modesetting.enable = true;
-  #   powerManagement.enable = true;
-  #   powerManagement.finegrained = true;
-  #   open = true;
-  #   nvidiaSettings = true;
-  #   package = config.boot.kernelPackages.nvidiaPackages.stable;
-  #   prime = {
-  #     sync.enable=true;
-  #     offload = {
-  #       enable = true;
-  #       enableOffloadCmd = true;
-  #     };
-  #     amdgpuBusId = "PCI:65:00:0";
-  #     nvidiaBusId = "PCI:1:0:0";
-  #   };
-  # };
 
   environment.systemPackages = with pkgs; [
     mangohud
