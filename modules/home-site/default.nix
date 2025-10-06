@@ -29,9 +29,10 @@ let
     if !dbCfg.enable then null
     else if dbCfg.createLocally then
       let
-        encodedSocketDir = replaceStrings [ "/" ] [ "%2F" ] dbCfg.socketDir;
+        host = "127.0.0.1";
+        portFragment = optionalString (dbCfg.port != null) (":${toString dbCfg.port}");
       in
-      "postgresql://${dbCfg.user}@localhost/${dbCfg.name}?socket=${encodedSocketDir}"
+      "postgresql://${dbCfg.user}@${host}${portFragment}/${dbCfg.name}"
     else dbCfg.url;
 
   baseEnvironment = {
@@ -245,7 +246,7 @@ in
         }];
         settings = {
           unix_socket_directories = dbCfg.socketDir;
-          listen_addresses = lib.mkDefault "";
+          listen_addresses = lib.mkDefault "127.0.0.1";
         } // optionalAttrs (dbCfg.port != null) { port = dbCfg.port; };
       }
     ]);
