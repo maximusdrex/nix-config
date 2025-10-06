@@ -96,7 +96,7 @@
   services.maxHomeSite = {
     enable = true;
     domain = "maxschaefer.me";
-    secretEnvFile = "/var/lib/nix-deploy/work/secrets/home-site/app.env";
+    secretEnvFile = "/var/lib/home-site/secrets/env";
   };
 
   users.users.nginx.extraGroups = [ "acme" ];

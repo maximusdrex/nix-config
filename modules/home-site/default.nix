@@ -231,7 +231,7 @@ in
     };
 
     systemd.tmpfiles.rules = [
-      (let secretDir = lib.dirOf cfg.secretEnvFile;
+      (let secretDir = builtins.dirOf cfg.secretEnvFile;
        in "d ${secretDir} 0750 root root - -")
     ];
 
