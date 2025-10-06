@@ -73,6 +73,8 @@ let
     '';
   };
 
+  commitRevision = config.system.configurationRevision or "";
+
   deviceSender = pkgs.writeShellApplication {
     name = "home-site-device-status-send";
     runtimeInputs = [ curlPkg pkgs.coreutils ];
@@ -82,13 +84,33 @@ let
       SRC=${lib.escapeShellArg devicePendingFile}
       STATE=${lib.escapeShellArg deviceStateFile}
       ENDPOINT=${lib.escapeShellArg (cfg.baseUrl + "/api/deploy/device_status")}
+      COMMIT_FULL=${lib.escapeShellArg commitRevision}
 
-      if [ ! -s "$SRC" ]; then
+      if [ -z "''${COMMIT_FULL}" ]; then
+        echo "home-site telemetry: configurationRevision not set; skipping device status" >&2
         exit 0
       fi
 
+      pending_dir="$(${pkgs.coreutils}/bin/dirname "$SRC")"
       state_dir="$(${pkgs.coreutils}/bin/dirname "$STATE")"
+      ${pkgs.coreutils}/bin/mkdir -p "$pending_dir"
       ${pkgs.coreutils}/bin/mkdir -p "$state_dir"
+
+      tmp="$(${pkgs.coreutils}/bin/mktemp -p "$pending_dir" device-status.json.XXXXXX)"
+      timestamp="$(${pkgs.coreutils}/bin/date -u +"%Y-%m-%dT%H:%M:%SZ")"
+      commit_short="$(${pkgs.coreutils}/bin/printf '%s' "''${COMMIT_FULL}" | ${pkgs.coreutils}/bin/cut -c1-12)"
+      cat >"$tmp" <<EOF
+{
+  "timestamp": "''${timestamp}",
+  "branch": ${branchJSON},
+  "commit": "''${commit_short}",
+  "mode": ${modeJSON},
+  "hostname": ${hostnameJSON},
+  "status": ${statusJSON}
+}
+EOF
+      ${pkgs.coreutils}/bin/chmod 0640 "$tmp"
+      ${pkgs.coreutils}/bin/mv "$tmp" "$SRC"
 
       digest="$(${pkgs.coreutils}/bin/sha256sum "$SRC" | ${pkgs.coreutils}/bin/cut -d' ' -f1)"
 
@@ -212,7 +234,7 @@ in {
 
     systemd.services.home-site-telemetry-device-status = mkIf cfg.deviceStatus.enable {
       description = "Upload device status to home-site telemetry";
-      after = [ "network-online.target" ];
+      after = [ "network.target" "network-online.target" ];
       wants = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
@@ -230,42 +252,9 @@ in {
       };
     };
 
-    system.activationScripts.homeSiteTelemetryDeviceStatus = mkIf cfg.deviceStatus.enable (lib.mkAfter ''
-      set -euo pipefail
-
-      dir=${lib.escapeShellArg (builtins.dirOf devicePendingFile)}
-      ${pkgs.coreutils}/bin/mkdir -p "$dir"
-
-      commit_full=${lib.escapeShellArg (config.system.configurationRevision or "")}
-      if [ -z "$commit_full" ]; then
-        echo "home-site telemetry: configurationRevision not set; skipping device status payload" >&2
-        exit 0
-      fi
-      commit_short="$(${pkgs.coreutils}/bin/printf '%s' "$commit_full" | ${pkgs.coreutils}/bin/cut -c1-12)"
-
-      tmp="$(${pkgs.coreutils}/bin/mktemp -p "$dir" device-status.json.XXXXXX)"
-      timestamp="$(${pkgs.coreutils}/bin/date -u +"%Y-%m-%dT%H:%M:%SZ")"
-      cat >"$tmp" <<EOF
-{
-  "timestamp": "''${timestamp}",
-  "branch": ${branchJSON},
-  "commit": "''${commit_short}",
-  "mode": ${modeJSON},
-  "hostname": ${hostnameJSON},
-  "status": ${statusJSON}
-}
-EOF
-      ${pkgs.coreutils}/bin/chmod 0640 "$tmp"
-      ${pkgs.coreutils}/bin/mv "$tmp" ${lib.escapeShellArg devicePendingFile}
-
-      if command -v systemctl >/dev/null 2>&1; then
-        systemctl start home-site-telemetry-device-status.service || true
-      fi
-    '');
-
     systemd.services.home-site-telemetry-deploy-report = mkIf cfg.deployReport.enable {
       description = "Upload deploy report to home-site telemetry";
-      after = [ "network-online.target" ];
+      after = [ "network.target" "network-online.target" ];
       wants = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
