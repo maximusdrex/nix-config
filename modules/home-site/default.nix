@@ -15,7 +15,8 @@ let
     hasPrefix
     removePrefix
     filter
-    concatStringsSep;
+    concatStringsSep
+    escapeShellArg;
 
   cfg = config.services.maxHomeSite;
 
@@ -241,7 +242,6 @@ in
         ensureDatabases = lib.mkAfter [ dbCfg.name ];
         ensureUsers = lib.mkAfter [{
           name = dbCfg.user;
-          ensurePermissions = { "DATABASE ${dbCfg.name}" = "ALL PRIVILEGES"; };
         }];
         settings = {
           unix_socket_directories = [ dbCfg.socketDir ];
@@ -249,6 +249,37 @@ in
         } // optionalAttrs (dbCfg.port != null) { port = dbCfg.port; };
       }
     ]);
+
+    systemd.services."home-site-db-owner" = mkIf (dbCfg.enable && dbCfg.createLocally) {
+      description = "Ensure ownership for ${dbCfg.name} database";
+      wantedBy = [ "multi-user.target" ];
+      requires = [ "postgresql-setup.service" ];
+      after = [ "postgresql-setup.service" ];
+
+      path = [ dbCfg.package pkgs.gnugrep pkgs.coreutils ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        User = "postgres";
+        Group = "postgres";
+      };
+
+      script = ''
+        set -euo pipefail
+
+        if ! psql -tAc ${lib.escapeShellArg "SELECT 1 FROM pg_roles WHERE rolname = '${dbCfg.user}'"} | grep -q 1; then
+          echo "Role ${dbCfg.user} missing; ensure services.postgresql.ensureUsers covers it." >&2
+          exit 1
+        fi
+
+        if ! psql -tAc ${lib.escapeShellArg "SELECT 1 FROM pg_database WHERE datname = '${dbCfg.name}'"} | grep -q 1; then
+          echo "Database ${dbCfg.name} missing; ensure services.postgresql.ensureDatabases covers it." >&2
+          exit 1
+        fi
+
+        psql -tAc ${lib.escapeShellArg "ALTER DATABASE \"${dbCfg.name}\" OWNER TO \"${dbCfg.user}\""}
+      '';
+    };
 
     services.nginx = mkIf cfg.nginx.enable {
       enable = lib.mkDefault true;
