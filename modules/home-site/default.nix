@@ -29,9 +29,9 @@ let
     if !dbCfg.enable then null
     else if dbCfg.createLocally then
       let
-        encodedSocketDir = lib.replaceStrings [ "/" ] [ "%2F" ] dbCfg.socketDir;
+        encodedSocketDir = replaceStrings [ "/" ] [ "%2F" ] dbCfg.socketDir;
       in
-      "postgresql://${dbCfg.user}@${encodedSocketDir}/${dbCfg.name}"
+      "postgresql://${dbCfg.user}@localhost/${dbCfg.name}?socket=${encodedSocketDir}"
     else dbCfg.url;
 
   baseEnvironment = {
