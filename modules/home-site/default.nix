@@ -16,7 +16,8 @@ let
     removePrefix
     filter
     concatStringsSep
-    escapeShellArg;
+    escapeShellArg
+    replaceStrings;
 
   cfg = config.services.maxHomeSite;
 
@@ -28,10 +29,9 @@ let
     if !dbCfg.enable then null
     else if dbCfg.createLocally then
       let
-        hostQuery = [ "host=${dbCfg.socketDir}" ] ++ (if dbCfg.port != null then [ "port=${toString dbCfg.port}" ] else []);
-        query = lib.concatStringsSep "&" hostQuery;
+        encodedSocketDir = lib.replaceStrings [ "/" ] [ "%2F" ] dbCfg.socketDir;
       in
-      "postgresql://${dbCfg.user}@/${dbCfg.name}?${query}"
+      "postgresql://${dbCfg.user}@${encodedSocketDir}/${dbCfg.name}"
     else dbCfg.url;
 
   baseEnvironment = {
