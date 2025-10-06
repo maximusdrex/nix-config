@@ -16,8 +16,7 @@ let
     removePrefix
     filter
     concatStringsSep
-    escapeShellArg
-    replaceStrings;
+    escapeShellArg;
 
   cfg = config.services.maxHomeSite;
 
@@ -228,6 +227,7 @@ in
         group = cfg.group;
         home = cfg.stateDir;
         description = "Home Site Phoenix runtime user";
+        extraGroups = optionals (dbCfg.enable && dbCfg.createLocally) [ "postgres" ];
       };
     };
 
@@ -244,6 +244,9 @@ in
         ensureUsers = lib.mkAfter [{
           name = dbCfg.user;
         }];
+        authentication = lib.mkAfter ''
+          host  ${dbCfg.name} ${dbCfg.user} 127.0.0.1/32 trust
+        '';
         settings = {
           unix_socket_directories = dbCfg.socketDir;
           listen_addresses = lib.mkDefault "127.0.0.1";
