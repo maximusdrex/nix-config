@@ -14,6 +14,7 @@
        ../../modules/wireguard/peers-export.nix
        ../../modules/edge-proxy
        ../../modules/deploy
+       ../../modules/home-site
     ];
 
   ######################
@@ -90,6 +91,12 @@
       client_max_body_size 256k;
       if ($http_x_deploy_token = "") { return 403; }
     '';
+  };
+
+  services.maxHomeSite = {
+    enable = true;
+    domain = "maxschaefer.me";
+    secretEnvFile = "/var/lib/nix-deploy/work/secrets/home-site/app.env";
   };
 
   users.users.nginx.extraGroups = [ "acme" ];
