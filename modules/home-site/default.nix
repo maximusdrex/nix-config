@@ -244,7 +244,7 @@ in
           name = dbCfg.user;
         }];
         settings = {
-          unix_socket_directories = [ dbCfg.socketDir ];
+          unix_socket_directories = dbCfg.socketDir;
           listen_addresses = lib.mkDefault "";
         } // optionalAttrs (dbCfg.port != null) { port = dbCfg.port; };
       }
