@@ -2,6 +2,10 @@
 
 let
   cfg = config.services.gitDeploy;
+  runMode =
+    if cfg.buildAll then "build-realize"
+    else if cfg.validateMode == "dry-run" then "validate-dry-run"
+    else "validate-eval";
 
   deployScript = pkgs.writeShellApplication {
     name = "nix-deploy-run";
@@ -16,13 +20,69 @@ let
     text = ''
       set -euo pipefail
       umask 0022
-  
+
+      RUN_ID="$(date +%Y%m%d-%H%M%S)"
+      MODE="${runMode}"
+      REPORT_FILE="${cfg.report.file}"
+
       BRANCH="''${1:-${cfg.branch}}"
       REPO="${cfg.repoUrl}"
       WORK="${cfg.workTree}"
       KEY_FILE="${cfg.gitCrypt.keyFilePath}"
       SSH_KEY=""
       ${lib.optionalString (cfg.sshKeyPath != null) ''SSH_KEY="${cfg.sshKeyPath}"''}
+
+      COMMIT="unknown"
+      FAILURE_COUNT=0
+      declare -a RESULTS_JSON=()
+
+      add_result() {
+        local status="$1"
+        local host="$2"
+
+        RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" '{status:$status, host:$host}')")
+      }
+
+      write_summary() {
+        local exit_code="$1"
+        local timestamp
+        timestamp="$(date -Is)"
+
+        local overall_status="OK"
+        if [ "''${exit_code}" -ne 0 ] || [ "''${FAILURE_COUNT}" -gt 0 ]; then
+          overall_status="ERROR"
+        fi
+
+        local results_payload="[]"
+        if [ "''${#RESULTS_JSON[@]}" -gt 0 ]; then
+          results_payload="$(printf '%s\n' "''${RESULTS_JSON[@]}" | jq -s '.')"
+        fi
+
+        local report_dir
+        report_dir="$(dirname "''${REPORT_FILE}")"
+        mkdir -p "''${report_dir}"
+
+        jq -n \
+          --arg run_id "''${RUN_ID}" \
+          --arg timestamp "''${timestamp}" \
+          --arg branch "''${BRANCH}" \
+          --arg commit "''${COMMIT}" \
+          --arg mode "''${MODE}" \
+          --argjson results "''${results_payload}" \
+          '{run_id:$run_id, timestamp:$timestamp, branch:$branch, commit:$commit, mode:$mode, results:[ $results ]}' \
+          > "''${REPORT_FILE}"
+
+        if [ -n "''${HOME_SITE_DEPLOY_REPORT_PATH:-}" ]; then
+          local telemetry_dir
+          telemetry_dir="$(dirname "''${HOME_SITE_DEPLOY_REPORT_PATH}")"
+          mkdir -p "''${telemetry_dir}"
+          install -m 0644 "''${REPORT_FILE}" "''${HOME_SITE_DEPLOY_REPORT_PATH}"
+        fi
+
+        echo "[deploy] summary -> ''${REPORT_FILE} (''${overall_status})"
+      }
+
+      trap 'write_summary $?' EXIT
   
       echo "[deploy] start $(date -Is) branch=$BRANCH repo=$REPO"
       mkdir -p "$WORK"
@@ -42,6 +102,8 @@ let
       git -C "$WORK" fetch --prune origin
       git -C "$WORK" checkout -qf "origin/$BRANCH"
       git -C "$WORK" reset --hard "origin/$BRANCH"
+
+      COMMIT="$(git -C "$WORK" rev-parse HEAD || echo unknown)"
   
       # ----- git-crypt unlock (key-file mode, no GPG) -----
       ${lib.optionalString cfg.gitCrypt.enable ''
@@ -65,24 +127,44 @@ let
         echo "[deploy] building every host (realize)…"
         for h in "''${HOSTS[@]}"; do
           echo "[deploy]   build $h"
-          nix --extra-experimental-features 'nix-command flakes' \
-            build --print-out-paths "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" >/dev/null
+          if nix --extra-experimental-features 'nix-command flakes' \
+            build --print-out-paths "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" >/dev/null; then
+            add_result "OK" "$h"
+          else
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            add_result "ERROR" "$h"
+          fi
         done
       '' else if cfg.validateMode == "dry-run" then ''
         echo "[deploy] validating every host (dry-run, no outputs)…"
         for h in "''${HOSTS[@]}"; do
           echo "[deploy]   check $h"
-          nix --extra-experimental-features 'nix-command flakes' \
-            build --no-link --dry-run "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" || exit 1
+          if nix --extra-experimental-features 'nix-command flakes' \
+            build --no-link --dry-run "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel"; then
+            add_result "OK" "$h"
+          else
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            add_result "ERROR" "$h"
+          fi
         done
       '' else ''
         echo "[deploy] eval-only validation of drvPaths…"
         for h in "''${HOSTS[@]}"; do
-          nix --extra-experimental-features 'nix-command flakes' \
-            eval --raw "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel.drvPath" >/dev/null || exit 1
+          if nix --extra-experimental-features 'nix-command flakes' \
+            eval --raw "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel.drvPath" >/dev/null; then
+            add_result "OK" "$h"
+          else
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            add_result "ERROR" "$h"
+          fi
         done
       ''}
-  
+
+      if [ "''${FAILURE_COUNT}" -gt 0 ]; then
+        echo "[deploy] encountered ''${FAILURE_COUNT} failures; aborting"
+        exit 1
+      fi
+
       ${lib.optionalString cfg.switchSelf ''
         echo "[deploy] switching this VPS (${config.networking.hostName})…"
         /run/current-system/sw/bin/nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
