@@ -3,9 +3,9 @@
 let
   cfg = config.services.gitDeploy;
   runMode =
-    if cfg.buildAll then "build-realize"
+    if cfg.switchSelf then "switch"
     else if cfg.validateMode == "dry-run" then "validate-dry-run"
-    else "validate-eval";
+    else "validate";
 
   deployScript = pkgs.writeShellApplication {
     name = "nix-deploy-run";
@@ -39,8 +39,13 @@ let
       add_result() {
         local status="$1"
         local host="$2"
+        local detail="${3:-}"
 
-        RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" '{status:$status, host:$host}')")
+        if [ -n "''${detail}" ]; then
+          RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" --arg detail "$detail" '{status:$status, host:$host, detail:$detail}')")
+        else
+          RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" '{status:$status, host:$host}')")
+        fi
       }
 
       write_summary() {
@@ -103,7 +108,7 @@ let
       git -C "$WORK" checkout -qf "origin/$BRANCH"
       git -C "$WORK" reset --hard "origin/$BRANCH"
 
-      COMMIT="$(git -C "$WORK" rev-parse HEAD || echo unknown)"
+      COMMIT="$(git -C "$WORK" rev-parse --short=12 HEAD || echo unknown)"
   
       # ----- git-crypt unlock (key-file mode, no GPG) -----
       ${lib.optionalString cfg.gitCrypt.enable ''
@@ -132,7 +137,7 @@ let
             add_result "OK" "$h"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "ERROR" "$h"
+            add_result "FAILED" "$h" "build failed"
           fi
         done
       '' else if cfg.validateMode == "dry-run" then ''
@@ -144,7 +149,7 @@ let
             add_result "OK" "$h"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "ERROR" "$h"
+            add_result "FAILED" "$h" "dry-run failed"
           fi
         done
       '' else ''
@@ -155,7 +160,7 @@ let
             add_result "OK" "$h"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "ERROR" "$h"
+            add_result "FAILED" "$h" "eval failed"
           fi
         done
       ''}
