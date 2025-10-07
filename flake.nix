@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-
+}
   outputs = { self, nixpkgs, home-manager, nixos-hardware, ... }@inputs: {
     nixosConfigurations = {
       # Each system needs a configuration here
