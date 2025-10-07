@@ -82,6 +82,12 @@
 
     timer.enable = false;        # safety net
     timer.onCalendar = "daily"; # or "hourly"
+
+    report = {
+      enable = true;
+      file   = "/var/log/nix-deploy/last.json";
+      url    = "https://maxschaefer.me/api/deploy/report";
+    };
   };
 
   services.nginx.virtualHosts."maxschaefer.me".locations."/hooks/deploy" = {

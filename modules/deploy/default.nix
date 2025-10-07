@@ -215,6 +215,29 @@ in
       default = "dry-run";
       description = "Validation style when buildAll=false: dry-run build (no outputs) or eval-only.";
     };
+
+    report = {
+      enable = lib.mkEnableOption "POST the last deploy summary JSON to a URL after each run";
+      file   = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/log/nix-deploy/last.json";
+        description = "Path to the last deploy summary JSON.";
+      };
+      url    = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Destination endpoint (e.g. https://maxschaefer.me/api/deploy/report).";
+      };
+      extraHeaders = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "X-Deploy-Token=@/var/lib/nix-deploy/secrets/deploy_api_token" ];
+        description = ''
+          Extra curl -H headers. Use @file to read values from files, e.g.
+          "X-Deploy-Token: $(cat /path/to/secret)" becomes "X-Deploy-Token=@/path/to/secret".
+        '';
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -251,6 +274,9 @@ in
         Type = "oneshot";
         User = "root";
         ExecStart = "${deployScript}/bin/nix-deploy-run %i";
+        ExecStartPost = [
+          "${pkgs.curl}/bin/curl -H Content-Type:application/json -d @/var/log/nix-deploy/last.json https://maxschaefer.me/api/deploy/report"
+        ];
         WorkingDirectory = cfg.workTree;
         Environment =
           lib.optionals (telemetryReportPath != null)
@@ -268,6 +294,9 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${deployScript}/bin/nix-deploy-run ${cfg.branch}";
+        ExecStartPost = [
+          "${pkgs.curl}/bin/curl -H Content-Type:application/json -d @/var/log/nix-deploy/last.json https://maxschaefer.me/api/deploy/report"
+        ];
         Environment =
           lib.optionals (telemetryReportPath != null)
             [ "HOME_SITE_DEPLOY_REPORT_PATH=${telemetryReportPath}" ];
