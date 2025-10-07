@@ -39,7 +39,7 @@ let
       add_result() {
         local status="$1"
         local host="$2"
-        local detail="${3:-}"
+        local detail="''${3:-}"
 
         if [ -n "''${detail}" ]; then
           RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" --arg detail "$detail" '{status:$status, host:$host, detail:$detail}')")
