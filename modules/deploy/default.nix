@@ -38,6 +38,7 @@ let
       RUN_ID="$(date +%Y%m%d-%H%M%S)"
       MODE="${runMode}"
       REPORT_FILE="${cfg.report.file}"
+      SWITCH_LOG_FILE="${cfg.switchLog.file}"
       # shellcheck disable=SC2034  # consumed later via jq loop
       REMOTE_SWITCHES_JSON='${remoteSwitchesJson}'
       REPORT_EXTRA_HEADERS_JSON='${reportHeadersJson}'
@@ -51,18 +52,54 @@ let
 
       COMMIT="unknown"
       FAILURE_COUNT=0
-      declare -a RESULTS_JSON=()
+      declare -a VALIDATION_RESULTS_JSON=()
+      declare -a SWITCH_RESULTS_JSON=()
 
-      add_result() {
+      encode_result() {
         local status="$1"
         local host="$2"
         local detail="''${3:-}"
 
         if [ -n "''${detail}" ]; then
-          RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" --arg detail "$detail" '{status:$status, host:$host, detail:$detail}')")
+          jq -nc --arg status "$status" --arg host "$host" --arg detail "$detail" '{status:$status, host:$host, detail:$detail}'
         else
-          RESULTS_JSON+=("$(jq -nc --arg status "$status" --arg host "$host" '{status:$status, host:$host}')")
+          jq -nc --arg status "$status" --arg host "$host" '{status:$status, host:$host}'
         fi
+      }
+
+      add_validation_result() {
+        VALIDATION_RESULTS_JSON+=("$(encode_result "$@")")
+      }
+
+      add_switch_result() {
+        SWITCH_RESULTS_JSON+=("$(encode_result "$@")")
+      }
+
+      write_switch_log() {
+        local timestamp="$1"
+
+        if [ "${MODE}" != "switch" ] && [ "''${#SWITCH_RESULTS_JSON[@]}" -eq 0 ]; then
+          return
+        fi
+
+        local switch_payload="[]"
+        if [ "''${#SWITCH_RESULTS_JSON[@]}" -gt 0 ]; then
+          switch_payload="$(printf '%s\n' "''${SWITCH_RESULTS_JSON[@]}" | jq -s '.')"
+        fi
+
+        local switch_dir
+        switch_dir="$(dirname "''${SWITCH_LOG_FILE}")"
+        mkdir -p "''${switch_dir}"
+
+        jq -n \
+          --arg run_id "''${RUN_ID}" \
+          --arg timestamp "''${timestamp}" \
+          --arg branch "''${BRANCH}" \
+          --arg commit "''${COMMIT}" \
+          --arg mode "''${MODE}" \
+          --argjson results "''${switch_payload}" \
+          '{run_id:$run_id, timestamp:$timestamp, branch:$branch, commit:$commit, mode:$mode, results:$results}' \
+          > "''${SWITCH_LOG_FILE}"
       }
 
       write_summary() {
@@ -76,8 +113,8 @@ let
         fi
 
         local results_payload="[]"
-        if [ "''${#RESULTS_JSON[@]}" -gt 0 ]; then
-          results_payload="$(printf '%s\n' "''${RESULTS_JSON[@]}" | jq -s '.')"
+        if [ "''${#VALIDATION_RESULTS_JSON[@]}" -gt 0 ]; then
+          results_payload="$(printf '%s\n' "''${VALIDATION_RESULTS_JSON[@]}" | jq -s '.')"
         fi
 
         local report_dir
@@ -91,7 +128,7 @@ let
           --arg commit "''${COMMIT}" \
           --arg mode "''${MODE}" \
           --argjson results "''${results_payload}" \
-          '{run_id:$run_id, timestamp:$timestamp, branch:$branch, commit:$commit, mode:$mode, results:[ $results ]}' \
+          '{run_id:$run_id, timestamp:$timestamp, branch:$branch, commit:$commit, mode:$mode, results:$results}' \
           > "''${REPORT_FILE}"
 
         ${lib.optionalString (cfg.report.enable && cfg.report.url != null) ''
@@ -107,6 +144,8 @@ let
           echo "[deploy] WARNING: report POST failed" >&2
         fi
         ''}
+
+        write_switch_log "''${timestamp}"
 
         echo "[deploy] summary -> ''${REPORT_FILE} (''${overall_status})"
       }
@@ -158,10 +197,10 @@ let
           echo "[deploy]   build $h"
           if nix --extra-experimental-features 'nix-command flakes' \
             build --print-out-paths "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel" >/dev/null; then
-            add_result "OK" "$h"
+            add_validation_result "OK" "$h"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "FAILED" "$h" "build failed"
+            add_validation_result "FAILED" "$h" "build failed"
           fi
         done
       '' else if cfg.validateMode == "dry-run" then ''
@@ -170,10 +209,10 @@ let
           echo "[deploy]   check $h"
           if nix --extra-experimental-features 'nix-command flakes' \
             build --no-link --dry-run "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel"; then
-            add_result "OK" "$h"
+            add_validation_result "OK" "$h"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "FAILED" "$h" "dry-run failed"
+            add_validation_result "FAILED" "$h" "dry-run failed"
           fi
         done
       '' else ''
@@ -181,10 +220,10 @@ let
         for h in "''${HOSTS[@]}"; do
           if nix --extra-experimental-features 'nix-command flakes' \
             eval --raw "$WORK#nixosConfigurations.\"$h\".config.system.build.toplevel.drvPath" >/dev/null; then
-            add_result "OK" "$h"
+            add_validation_result "OK" "$h"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "FAILED" "$h" "eval failed"
+            add_validation_result "FAILED" "$h" "eval failed"
           fi
         done
       ''}
@@ -198,10 +237,10 @@ let
             if systemctl is-active --quiet git-deploy-webhook.service; then
               systemctl try-restart git-deploy-webhook.service || true
             fi
-            add_result "CHANGED" "${config.networking.hostName}" "local switch"
+            add_switch_result "CHANGED" "${config.networking.hostName}" "local switch"
           else
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            add_result "FAILED" "${config.networking.hostName}" "local switch failed"
+            add_switch_result "FAILED" "${config.networking.hostName}" "local switch failed"
           fi
         ''}
 
@@ -225,10 +264,10 @@ let
                 --build-host "''${BUILD_ARG}")
 
               if "''${CMD[@]}" "''${EXTRA_FLAGS[@]}"; then
-                add_result "CHANGED" "''${FLAKE_ATTR}" "remote switch"
+                add_switch_result "CHANGED" "''${FLAKE_ATTR}" "remote switch"
               else
                 FAILURE_COUNT=$((FAILURE_COUNT + 1))
-                add_result "FAILED" "''${FLAKE_ATTR}" "remote switch failed"
+                add_switch_result "FAILED" "''${FLAKE_ATTR}" "remote switch failed"
               fi
             done
           fi
@@ -409,6 +448,14 @@ in
           Extra curl -H headers. Use @file to read values from files, e.g.
           "X-Deploy-Token: $(cat /path/to/secret)" becomes "X-Deploy-Token=@/path/to/secret".
         '';
+      };
+    };
+
+    switchLog = {
+      file = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/log/nix-deploy/last-switch.json";
+        description = "Path to the last switch action summary JSON.";
       };
     };
   };
