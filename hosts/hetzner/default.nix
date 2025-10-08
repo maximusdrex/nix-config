@@ -44,6 +44,7 @@
       branch = "main";
       mode = "switch";
       status = "success";
+      repoPath = "/var/lib/nix-deploy/work";
     };
   };
 

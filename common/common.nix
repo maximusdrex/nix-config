@@ -16,10 +16,13 @@
 ########################
 
 let
+  sourceInfo = self.sourceInfo or {};
   configurationRevision =
-    if self ? rev then self.rev
+    if sourceInfo ? rev then sourceInfo.rev
+    else if sourceInfo ? dirtyRev then sourceInfo.dirtyRev
+    else if self ? rev then self.rev
     else if self ? dirtyRev then self.dirtyRev
-    else null;
+    else "";
 in
 {
 
@@ -129,7 +132,10 @@ in
   services.homeSiteTelemetry = {
     enable = true;
     baseUrl = "https://maxschaefer.me";
-    deviceStatus.enable = true;
+    deviceStatus = {
+      enable = true;
+      repoPath = "/etc/nixos";
+    };
   };
 
 }

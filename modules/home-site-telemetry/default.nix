@@ -19,6 +19,10 @@ let
     then cfg.deviceStatus.stateFile
     else "${stateDir}/device-status.sha";
 
+  deviceRepoPath = if cfg.deviceStatus.repoPath != null
+    then cfg.deviceStatus.repoPath
+    else "";
+
   branchJSON = builtins.toJSON cfg.deviceStatus.branch;
   modeJSON = builtins.toJSON cfg.deviceStatus.mode;
   statusJSON = builtins.toJSON cfg.deviceStatus.status;
@@ -28,7 +32,7 @@ let
 
   deviceSender = pkgs.writeShellApplication {
     name = "home-site-device-status-send";
-    runtimeInputs = [ curlPkg pkgs.coreutils ];
+    runtimeInputs = [ curlPkg pkgs.coreutils pkgs.gitMinimal ];
     text = ''
       set -euo pipefail
 
@@ -36,8 +40,17 @@ let
       STATE=${lib.escapeShellArg deviceStateFile}
       ENDPOINT=${lib.escapeShellArg (cfg.baseUrl + "/api/deploy/device_status")}
       COMMIT_FULL=${lib.escapeShellArg commitRevision}
+      REPO_PATH=${lib.escapeShellArg deviceRepoPath}
 
-      if [ -z "''${COMMIT_FULL}" ]; then
+      if [ -z "''${COMMIT_FULL}" ] || [ "''${COMMIT_FULL}" = "unknown" ]; then
+        if [ -n "''${REPO_PATH}" ] && [ -d "''${REPO_PATH}" ]; then
+          if REV=$(${pkgs.gitMinimal}/bin/git -C "''${REPO_PATH}" rev-parse HEAD 2>/dev/null); then
+            COMMIT_FULL="$REV"
+          fi
+        fi
+      fi
+
+      if [ -z "''${COMMIT_FULL}" ] || [ "''${COMMIT_FULL}" = "unknown" ]; then
         if COMMIT_FALLBACK=$(/run/current-system/sw/bin/nixos-version --revision 2>/dev/null); then
           COMMIT_FULL="$COMMIT_FALLBACK"
         fi
@@ -52,6 +65,8 @@ let
         echo "home-site telemetry: configuration revision unavailable; skipping device status" >&2
         exit 0
       fi
+
+      echo "home-site telemetry: using commit ''${COMMIT_FULL}" >&2
 
       pending_dir="$(${pkgs.coreutils}/bin/dirname "$SRC")"
       state_dir="$(${pkgs.coreutils}/bin/dirname "$STATE")"
@@ -145,6 +160,12 @@ in {
         type = types.nullOr types.str;
         default = null;
         description = "Optional override for the hostname reported to the API.";
+      };
+
+      repoPath = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Path to a git worktree whose HEAD commit should be reported.";
       };
 
       pendingFile = mkOption {
