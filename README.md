@@ -98,5 +98,3 @@ Currently only built for one `max` user. Can be added as an argument later if di
 
 Currently the git email is globally defined and can't be changed. This needs to depend on the machine.
 
-Set up web hooks
-
