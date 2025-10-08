@@ -120,6 +120,15 @@
     dxvk
   ];
 
+  services.homeSiteTelemetry = {
+    enable = true;
+    baseUrl = "https://maxschaefer.me";
+    deviceStatus = {
+     enable = true;
+     repoPath = "/home/max/nixos";
+    };
+  };
+
   # Host config
 
   networking.hostName = "max-g14-nix"; # Define your hostname.
