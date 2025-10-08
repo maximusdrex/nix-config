@@ -36,6 +36,7 @@ let
       RUN_ID="$(date +%Y%m%d-%H%M%S)"
       MODE="${runMode}"
       REPORT_FILE="${cfg.report.file}"
+      # shellcheck disable=SC2034  # consumed later via jq loop
       REMOTE_SWITCHES_JSON='${remoteSwitchesJson}'
 
       BRANCH="''${1:-${cfg.branch}}"
