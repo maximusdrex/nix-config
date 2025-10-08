@@ -169,7 +169,6 @@ in {
         Type = "oneshot";
         ExecStart = "${deviceSender}/bin/home-site-device-status-send";
       };
-      restartTriggers = [ config.system.build.toplevel ];
     };
 
     systemd.timers.home-site-telemetry-device-status = mkIf cfg.deviceStatus.enable {
@@ -181,6 +180,11 @@ in {
         Persistent = true;
       };
     };
+
+    system.activationScripts.homeSiteTelemetryDeviceStatus = mkIf cfg.deviceStatus.enable ''
+      echo "home-site telemetry: triggering device status update" >&2
+      ${pkgs.systemd}/bin/systemctl start --no-block home-site-telemetry-device-status.service || true
+    '';
 
   };
 }
