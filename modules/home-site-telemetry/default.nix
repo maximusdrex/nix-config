@@ -38,7 +38,18 @@ let
       COMMIT_FULL=${lib.escapeShellArg commitRevision}
 
       if [ -z "''${COMMIT_FULL}" ]; then
-        echo "home-site telemetry: configurationRevision not set; skipping device status" >&2
+        if COMMIT_FALLBACK=$(/run/current-system/sw/bin/nixos-version --revision 2>/dev/null); then
+          COMMIT_FULL="$COMMIT_FALLBACK"
+        fi
+      fi
+
+      COMMIT_FULL="$(printf '%s' "''${COMMIT_FULL}" | tr -d '\n')"
+      case "''${COMMIT_FULL}" in
+        *-dirty) COMMIT_FULL="''${COMMIT_FULL%-dirty}" ;;
+      esac
+
+      if [ -z "''${COMMIT_FULL}" ] || [ "''${COMMIT_FULL}" = "unknown" ]; then
+        echo "home-site telemetry: configuration revision unavailable; skipping device status" >&2
         exit 0
       fi
 
