@@ -202,9 +202,7 @@ let
                 --target-host "$TARGET_ARG" \
                 --build-host "$BUILD_ARG")
               if [ "${#EXTRA_FLAGS[@]}" -gt 0 ]; then
-                for flag in "${EXTRA_FLAGS[@]}"; do
-                  CMD+=("$flag")
-                done
+                for flag in "${EXTRA_FLAGS[@]}"; do CMD+=("$flag"); done
               fi
 
               if "${CMD[@]}"; then
