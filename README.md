@@ -97,3 +97,5 @@ Build the system by running `sudo nixos-rebuild switch --flake <hostname-here>` 
 Currently only built for one `max` user. Can be added as an argument later if different user names become necessary.
 
 Currently the git email is globally defined and can't be changed. This needs to depend on the machine.
+
+Set up web hooks
