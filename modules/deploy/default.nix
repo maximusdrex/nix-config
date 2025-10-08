@@ -184,32 +184,32 @@ let
         ''}
 
         ${lib.optionalString (cfg.remoteSwitches != []) ''
-          if [ "${REMOTE_SWITCHES_JSON}" != "[]" ]; then
+          if [ "''${REMOTE_SWITCHES_JSON}" != "[]" ]; then
             echo "[deploy] switching remote hosts…"
-            printf '%s\n' "${REMOTE_SWITCHES_JSON}" | jq -c '.[]' | while IFS= read -r switchSpec; do
-              FLAKE_ATTR=$(jq -r '.flakeAttr' <<<"$switchSpec")
-              TARGET_HOST=$(jq -r '.targetHost' <<<"$switchSpec")
-              BUILD_HOST=$(jq -r '.buildHost' <<<"$switchSpec")
-              SSH_USER=$(jq -r '.sshUser' <<<"$switchSpec")
-              mapfile -t EXTRA_FLAGS < <(jq -r '.extraFlags[]?' <<<"$switchSpec")
+            jq -c '.[]' <<<"''${REMOTE_SWITCHES_JSON}" | while IFS= read -r switchSpec; do
+              FLAKE_ATTR=$(jq -r '.flakeAttr' <<<"''${switchSpec}")
+              TARGET_HOST=$(jq -r '.targetHost' <<<"''${switchSpec}")
+              BUILD_HOST=$(jq -r '.buildHost' <<<"''${switchSpec}")
+              SSH_USER=$(jq -r '.sshUser' <<<"''${switchSpec}")
+              mapfile -t EXTRA_FLAGS < <(jq -r '.extraFlags[]?' <<<"''${switchSpec}")
 
-              TARGET_ARG="${SSH_USER}@${TARGET_HOST}"
-              BUILD_ARG="${SSH_USER}@${BUILD_HOST}"
-              echo "[deploy]   switch ${FLAKE_ATTR} via ${TARGET_ARG} (build on ${BUILD_HOST})"
+              TARGET_ARG="''${SSH_USER}@''${TARGET_HOST}"
+              BUILD_ARG="''${SSH_USER}@''${BUILD_HOST}"
+              echo "[deploy]   switch ''${FLAKE_ATTR} via ''${TARGET_ARG} (build on ''${BUILD_HOST})"
 
               CMD=(/run/current-system/sw/bin/nixos-rebuild switch \
-                --flake "$WORK#${FLAKE_ATTR}" \
-                --target-host "$TARGET_ARG" \
-                --build-host "$BUILD_ARG")
-              if [ "${#EXTRA_FLAGS[@]}" -gt 0 ]; then
-                for flag in "${EXTRA_FLAGS[@]}"; do CMD+=("$flag"); done
+                --flake "''${WORK}#''${FLAKE_ATTR}" \
+                --target-host "''${TARGET_ARG}" \
+                --build-host "''${BUILD_ARG}")
+              if [ "''${#EXTRA_FLAGS[@]}" -gt 0 ]; then
+                for flag in "''${EXTRA_FLAGS[@]}"; do CMD+=("''${flag}"); done
               fi
 
-              if "${CMD[@]}"; then
-                add_result "CHANGED" "$FLAKE_ATTR" "remote switch"
+              if "''${CMD[@]}"; then
+                add_result "CHANGED" "''${FLAKE_ATTR}" "remote switch"
               else
                 FAILURE_COUNT=$((FAILURE_COUNT + 1))
-                add_result "FAILED" "$FLAKE_ATTR" "remote switch failed"
+                add_result "FAILED" "''${FLAKE_ATTR}" "remote switch failed"
               fi
             done
           fi
