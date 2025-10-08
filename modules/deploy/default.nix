@@ -2,8 +2,20 @@
 
 let
   cfg = config.services.gitDeploy;
+  remoteSwitchesJson = builtins.toJSON (map (remote:
+    let
+      targetHost = if remote.targetHost != null then remote.targetHost else remote.flakeAttr;
+      buildHost = if remote.buildHost != null then remote.buildHost else targetHost;
+    in {
+      flakeAttr = remote.flakeAttr;
+      targetHost = targetHost;
+      buildHost = buildHost;
+      sshUser = remote.sshUser;
+      extraFlags = remote.extraFlags;
+    }
+  ) cfg.remoteSwitches);
   runMode =
-    if cfg.switchSelf then "switch"
+    if cfg.switchSelf || cfg.remoteSwitches != [] then "switch"
     else if cfg.validateMode == "dry-run" then "validate-dry-run"
     else "validate";
 
@@ -24,6 +36,7 @@ let
       RUN_ID="$(date +%Y%m%d-%H%M%S)"
       MODE="${runMode}"
       REPORT_FILE="${cfg.report.file}"
+      REMOTE_SWITCHES_JSON='${remoteSwitchesJson}'
 
       BRANCH="''${1:-${cfg.branch}}"
       REPO="${cfg.repoUrl}"
@@ -159,17 +172,50 @@ let
       ''}
 
       if [ "''${FAILURE_COUNT}" -gt 0 ]; then
-        echo "[deploy] encountered ''${FAILURE_COUNT} failures; continuing"
+        echo "[deploy] encountered ''${FAILURE_COUNT} failures; skipping switch actions"
+      else
+        ${lib.optionalString cfg.switchSelf ''
+          echo "[deploy] switching this VPS (${config.networking.hostName})…"
+          /run/current-system/sw/bin/nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
+          if systemctl is-active --quiet git-deploy-webhook.service; then
+            systemctl try-restart git-deploy-webhook.service || true
+          fi
+          add_result "CHANGED" "${config.networking.hostName}" "local switch"
+        ''}
+
+        ${lib.optionalString (cfg.remoteSwitches != []) ''
+          if [ "${REMOTE_SWITCHES_JSON}" != "[]" ]; then
+            echo "[deploy] switching remote hosts…"
+            printf '%s\n' "${REMOTE_SWITCHES_JSON}" | jq -c '.[]' | while IFS= read -r switchSpec; do
+              FLAKE_ATTR=$(jq -r '.flakeAttr' <<<"$switchSpec")
+              TARGET_HOST=$(jq -r '.targetHost' <<<"$switchSpec")
+              BUILD_HOST=$(jq -r '.buildHost' <<<"$switchSpec")
+              SSH_USER=$(jq -r '.sshUser' <<<"$switchSpec")
+              mapfile -t EXTRA_FLAGS < <(jq -r '.extraFlags[]?' <<<"$switchSpec")
+
+              TARGET_ARG="${SSH_USER}@${TARGET_HOST}"
+              BUILD_ARG="${SSH_USER}@${BUILD_HOST}"
+              echo "[deploy]   switch ${FLAKE_ATTR} via ${TARGET_ARG} (build on ${BUILD_HOST})"
+
+              CMD=(/run/current-system/sw/bin/nixos-rebuild switch \
+                --flake "$WORK#${FLAKE_ATTR}" \
+                --target-host "$TARGET_ARG" \
+                --build-host "$BUILD_ARG")
+              if [ "${#EXTRA_FLAGS[@]}" -gt 0 ]; then
+                CMD+=("${EXTRA_FLAGS[@]}")
+              fi
+
+              if "${CMD[@]}"; then
+                add_result "CHANGED" "$FLAKE_ATTR" "remote switch"
+              else
+                FAILURE_COUNT=$((FAILURE_COUNT + 1))
+                add_result "FAILED" "$FLAKE_ATTR" "remote switch failed"
+              fi
+            done
+          fi
+        ''}
       fi
 
-      ${lib.optionalString cfg.switchSelf ''
-        echo "[deploy] switching this VPS (${config.networking.hostName})…"
-        /run/current-system/sw/bin/nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
-        if systemctl is-active --quiet git-deploy-webhook.service; then
-          systemctl try-restart git-deploy-webhook.service || true
-        fi
-      ''}
-  
       echo "[deploy] done $(date -Is)"
     '';
   };
@@ -283,6 +329,40 @@ in
       type = lib.types.bool;
       default = false;   # set false to skip nixos-rebuild switch on the VPS
       description = "If true, switch this VPS after a successful run.";
+    };
+    remoteSwitches = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule ({ ... }:
+        {
+          options = {
+            flakeAttr = lib.mkOption {
+              type = lib.types.str;
+              description = "Flake attribute (nixosConfiguration) to switch remotely.";
+            };
+            targetHost = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "SSH host (without user) for --target-host; defaults to flakeAttr.";
+            };
+            buildHost = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "SSH host (without user) for --build-host; defaults to targetHost.";
+            };
+            sshUser = lib.mkOption {
+              type = lib.types.str;
+              default = "root";
+              description = "SSH user for remote rebuilds.";
+            };
+            extraFlags = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = "Extra arguments passed to nixos-rebuild for this host.";
+            };
+          };
+        }
+      ));
+      default = [ ];
+      description = "Remote hosts to rebuild with nixos-rebuild --build-host after a successful run.";
     };
     validateMode = lib.mkOption {
       type = lib.types.enum [ "dry-run" "eval" ];
