@@ -129,13 +129,13 @@ in
   # 6. Other
   ######################
 
-  services.homeSiteTelemetry = {
-    enable = true;
-    baseUrl = "https://maxschaefer.me";
-    deviceStatus = {
-      enable = true;
-      repoPath = "/etc/nixos";
-    };
-  };
+  # services.homeSiteTelemetry = {
+  #   enable = true;
+  #   baseUrl = "https://maxschaefer.me";
+  #   deviceStatus = {
+  #    enable = true;
+  #    repoPath = "/etc/nixos";
+  #   };
+  # };
 
 }
