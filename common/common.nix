@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, self, ... }:
 
 ########################
 #  Base Configuration
@@ -15,6 +15,12 @@
 #  6. Other
 ########################
 
+let
+  configurationRevision =
+    if self ? rev then self.rev
+    else if self ? dirtyRev then self.dirtyRev
+    else null;
+in
 {
 
   imports = [
@@ -110,6 +116,8 @@
   ######################
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  system.configurationRevision = configurationRevision;
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;

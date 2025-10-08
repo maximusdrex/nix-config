@@ -20,7 +20,7 @@
       
       max-xps-modal = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs self; };
         modules = [
           # Import the host module
           ./hosts/xps
@@ -38,7 +38,7 @@
 
       max-g14-nix = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs self; };
         modules = [
           # Import the host module
           ./hosts/g14
@@ -57,7 +57,7 @@
 
       max-hetzner-nix = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs self; };
         modules = [
           # Import the host module
           ./hosts/hetzner
@@ -75,7 +75,7 @@
 
       max-richard-nix = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs self; };
         modules = [
           # Import the host module
           ./hosts/richard
