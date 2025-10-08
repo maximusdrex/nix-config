@@ -78,7 +78,7 @@ let
       write_switch_log() {
         local timestamp="$1"
 
-        if [ "${MODE}" != "switch" ] && [ "''${#SWITCH_RESULTS_JSON[@]}" -eq 0 ]; then
+        if [ "''${MODE}" != "switch" ] && [ "''${#SWITCH_RESULTS_JSON[@]}" -eq 0 ]; then
           return
         fi
 
