@@ -95,7 +95,6 @@
     extraConfig = ''
       limit_except POST { deny all; }
       client_max_body_size 256k;
-      if ($http_x_deploy_token = "") { return 403; }
     '';
   };
 
