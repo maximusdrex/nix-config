@@ -37,15 +37,15 @@
   # 6. Other
   ######################
 
-  services.homeSiteTelemetry.deployReport = {
+  services.homeSiteTelemetry = {
     enable = true;
-    sourceFile = "/var/lib/nix-deploy/work/telemetry/deploy-report.json";
-    interval = "7min";
+    deviceStatus = {
+      enable = true;
+      branch = "main";
+      mode = "switch";
+      status = "success";
+    };
   };
-
-  systemd.tmpfiles.rules = [
-    "d /var/lib/nix-deploy/work/telemetry 0755 root root - -"
-  ];
 
   services.edgeProxy = {
     enable = true;

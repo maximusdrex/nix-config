@@ -19,59 +19,10 @@ let
     then cfg.deviceStatus.stateFile
     else "${stateDir}/device-status.sha";
 
-  deploySourceFile = if cfg.deployReport.sourceFile != null
-    then cfg.deployReport.sourceFile
-    else "${stateDir}/deploy-report.json";
-
-  deployStateFile = if cfg.deployReport.stateFile != null
-    then cfg.deployReport.stateFile
-    else "${stateDir}/deploy-report.sha";
-
   branchJSON = builtins.toJSON cfg.deviceStatus.branch;
   modeJSON = builtins.toJSON cfg.deviceStatus.mode;
   statusJSON = builtins.toJSON cfg.deviceStatus.status;
   hostnameJSON = builtins.toJSON deviceHostname;
-
-  deploySender = pkgs.writeShellApplication {
-    name = "home-site-deploy-report-send";
-    runtimeInputs = [ curlPkg pkgs.coreutils ];
-    text = ''
-      set -euo pipefail
-
-      SRC=${lib.escapeShellArg deploySourceFile}
-      STATE=${lib.escapeShellArg deployStateFile}
-      ENDPOINT=${lib.escapeShellArg (cfg.baseUrl + "/api/deploy/report")}
-
-      if [ ! -s "$SRC" ]; then
-        exit 0
-      fi
-
-      state_dir="$(${pkgs.coreutils}/bin/dirname "$STATE")"
-      ${pkgs.coreutils}/bin/mkdir -p "$state_dir"
-
-      digest="$(${pkgs.coreutils}/bin/sha256sum "$SRC" | ${pkgs.coreutils}/bin/cut -d' ' -f1)"
-
-      last=""
-      if [ -f "$STATE" ]; then
-        last="$(${pkgs.coreutils}/bin/cat "$STATE")"
-      fi
-
-      if [ "$digest" = "$last" ]; then
-        exit 0
-      fi
-
-      if ${curlPkg}/bin/curl \
-          --silent --show-error --fail-with-body \
-          --connect-timeout 10 --max-time 60 \
-          -H 'Content-Type: application/json' \
-          -X POST "$ENDPOINT" \
-          --data-binary @"$SRC"; then
-        echo "$digest" > "$STATE"
-      else
-        exit 1
-      fi
-    '';
-  };
 
   commitRevision = config.system.configurationRevision or "";
 
@@ -158,28 +109,6 @@ in {
       description = "Curl package used for telemetry uploads.";
     };
 
-    deployReport = {
-      enable = mkEnableOption "ship deploy reports to the API";
-
-      sourceFile = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = "Path to the JSON deploy report that should be uploaded.";
-      };
-
-      stateFile = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = "Override path to store the last-sent deploy report digest.";
-      };
-
-      interval = mkOption {
-        type = types.str;
-        default = "5min";
-        description = "Repeat interval for retrying deploy report uploads.";
-      };
-    };
-
     deviceStatus = {
       enable = mkEnableOption "report per-device status updates";
 
@@ -240,6 +169,7 @@ in {
         Type = "oneshot";
         ExecStart = "${deviceSender}/bin/home-site-device-status-send";
       };
+      restartTriggers = [ config.system.build.toplevel ];
     };
 
     systemd.timers.home-site-telemetry-device-status = mkIf cfg.deviceStatus.enable {
@@ -252,24 +182,5 @@ in {
       };
     };
 
-    systemd.services.home-site-telemetry-deploy-report = mkIf cfg.deployReport.enable {
-      description = "Upload deploy report to home-site telemetry";
-      after = [ "network.target" "network-online.target" ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${deploySender}/bin/home-site-deploy-report-send";
-      };
-    };
-
-    systemd.timers.home-site-telemetry-deploy-report = mkIf cfg.deployReport.enable {
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnBootSec = "3min";
-        OnUnitActiveSec = cfg.deployReport.interval;
-        AccuracySec = "30s";
-        Persistent = true;
-      };
-    };
   };
 }

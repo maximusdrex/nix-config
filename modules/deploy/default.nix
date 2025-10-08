@@ -77,13 +77,6 @@ let
           '{run_id:$run_id, timestamp:$timestamp, branch:$branch, commit:$commit, mode:$mode, results:[ $results ]}' \
           > "''${REPORT_FILE}"
 
-        if [ -n "''${HOME_SITE_DEPLOY_REPORT_PATH:-}" ]; then
-          local telemetry_dir
-          telemetry_dir="$(dirname "''${HOME_SITE_DEPLOY_REPORT_PATH}")"
-          mkdir -p "''${telemetry_dir}"
-          install -m 0644 "''${REPORT_FILE}" "''${HOME_SITE_DEPLOY_REPORT_PATH}"
-        fi
-
         echo "[deploy] summary -> ''${REPORT_FILE} (''${overall_status})"
       }
 
@@ -240,14 +233,6 @@ let
       port = int(os.environ.get("WEBHOOK_PORT","9099"))
       HTTPServer((addr, port), H).serve_forever()
   '';
-  telemetryReportPath =
-    let
-      teleCfg = lib.attrByPath [ "services" "homeSiteTelemetry" ] null config;
-    in if teleCfg != null && teleCfg.enable && teleCfg.deployReport.enable then
-      (if teleCfg.deployReport.sourceFile != null
-       then teleCfg.deployReport.sourceFile
-       else "${teleCfg.stateDir}/deploy-report.json")
-    else null;
 in
 {
   options.services.gitDeploy = {
@@ -368,9 +353,6 @@ in
             -d @"${cfg.report.file}" ${lib.escapeShellArg (cfg.report.url or "https://maxschaefer.me/api/deploy/report")} || true''
         ];
         WorkingDirectory = cfg.workTree;
-        Environment =
-          lib.optionals (telemetryReportPath != null)
-            [ "HOME_SITE_DEPLOY_REPORT_PATH=${telemetryReportPath}" ];
       };
     };
 
@@ -388,9 +370,6 @@ in
           ''${pkgs.curl}/bin/curl -H Content-Type:application/json \
             -d @"${cfg.report.file}" ${lib.escapeShellArg (cfg.report.url or "https://maxschaefer.me/api/deploy/report")} || true''
         ];
-        Environment =
-          lib.optionals (telemetryReportPath != null)
-            [ "HOME_SITE_DEPLOY_REPORT_PATH=${telemetryReportPath}" ];
       };
     };
 
