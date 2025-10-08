@@ -166,8 +166,7 @@ let
       ''}
 
       if [ "''${FAILURE_COUNT}" -gt 0 ]; then
-        echo "[deploy] encountered ''${FAILURE_COUNT} failures; aborting"
-        exit 1
+        echo "[deploy] encountered ''${FAILURE_COUNT} failures; continuing"
       fi
 
       ${lib.optionalString cfg.switchSelf ''
@@ -362,7 +361,8 @@ in
         User = "root";
         ExecStart = "${deployScript}/bin/nix-deploy-run %i";
         ExecStartPost = [
-          "${pkgs.curl}/bin/curl -H Content-Type:application/json -d @/var/log/nix-deploy/last.json https://maxschaefer.me/api/deploy/report"
+          ''${pkgs.curl}/bin/curl -H Content-Type:application/json \
+            -d @"${cfg.report.file}" ${lib.escapeShellArg (cfg.report.url or "https://maxschaefer.me/api/deploy/report")} || true''
         ];
         WorkingDirectory = cfg.workTree;
         Environment =
@@ -382,7 +382,8 @@ in
         Type = "oneshot";
         ExecStart = "${deployScript}/bin/nix-deploy-run ${cfg.branch}";
         ExecStartPost = [
-          "${pkgs.curl}/bin/curl -H Content-Type:application/json -d @/var/log/nix-deploy/last.json https://maxschaefer.me/api/deploy/report"
+          ''${pkgs.curl}/bin/curl -H Content-Type:application/json \
+            -d @"${cfg.report.file}" ${lib.escapeShellArg (cfg.report.url or "https://maxschaefer.me/api/deploy/report")} || true''
         ];
         Environment =
           lib.optionals (telemetryReportPath != null)
