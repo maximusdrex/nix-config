@@ -14,6 +14,7 @@ let
       extraFlags = remote.extraFlags;
     }
   ) cfg.remoteSwitches);
+  reportHeadersJson = builtins.toJSON cfg.report.extraHeaders;
   runMode =
     if cfg.switchSelf || cfg.remoteSwitches != [] then "switch"
     else if cfg.validateMode == "dry-run" then "validate-dry-run"
@@ -28,6 +29,7 @@ let
       pkgs.coreutils
       pkgs.openssh
       pkgs.git-crypt
+      pkgs.curl
     ];
     text = ''
       set -euo pipefail
@@ -38,6 +40,7 @@ let
       REPORT_FILE="${cfg.report.file}"
       # shellcheck disable=SC2034  # consumed later via jq loop
       REMOTE_SWITCHES_JSON='${remoteSwitchesJson}'
+      REPORT_EXTRA_HEADERS_JSON='${reportHeadersJson}'
 
       BRANCH="''${1:-${cfg.branch}}"
       REPO="${cfg.repoUrl}"
@@ -90,6 +93,20 @@ let
           --argjson results "''${results_payload}" \
           '{run_id:$run_id, timestamp:$timestamp, branch:$branch, commit:$commit, mode:$mode, results:[ $results ]}' \
           > "''${REPORT_FILE}"
+
+        ${lib.optionalString (cfg.report.enable && cfg.report.url != null) ''
+        local -a CURL_HEADER_ARGS=()
+        while IFS= read -r header; do
+          [ -n "''${header}" ] && CURL_HEADER_ARGS+=( -H "''${header}" )
+        done < <(jq -r '.[]' <<<"''${REPORT_EXTRA_HEADERS_JSON}")
+        if ! ${pkgs.curl}/bin/curl \
+          --silent --show-error --fail --location \
+          -H 'Content-Type: application/json' \
+          "''${CURL_HEADER_ARGS[@]}" \
+          --data-binary "@''${REPORT_FILE}" ${lib.escapeShellArg cfg.report.url}; then
+          echo "[deploy] WARNING: report POST failed" >&2
+        fi
+        ''}
 
         echo "[deploy] summary -> ''${REPORT_FILE} (''${overall_status})"
       }
@@ -177,15 +194,19 @@ let
       else
         ${lib.optionalString cfg.switchSelf ''
           echo "[deploy] switching this VPS (${config.networking.hostName})…"
-          /run/current-system/sw/bin/nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"
-          if systemctl is-active --quiet git-deploy-webhook.service; then
-            systemctl try-restart git-deploy-webhook.service || true
+          if /run/current-system/sw/bin/nixos-rebuild switch --flake "$WORK#${config.networking.hostName}"; then
+            if systemctl is-active --quiet git-deploy-webhook.service; then
+              systemctl try-restart git-deploy-webhook.service || true
+            fi
+            add_result "CHANGED" "${config.networking.hostName}" "local switch"
+          else
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            add_result "FAILED" "${config.networking.hostName}" "local switch failed"
           fi
-          add_result "CHANGED" "${config.networking.hostName}" "local switch"
         ''}
 
         ${lib.optionalString (cfg.remoteSwitches != []) ''
-          if [ "''${REMOTE_SWITCHES_JSON}" != "[]" ]; then
+          if [ "''${FAILURE_COUNT}" -eq 0 ] && [ "''${REMOTE_SWITCHES_JSON}" != "[]" ]; then
             echo "[deploy] switching remote hosts…"
             jq -c '.[]' <<<"''${REMOTE_SWITCHES_JSON}" | while IFS= read -r switchSpec; do
               FLAKE_ATTR=$(jq -r '.flakeAttr' <<<"''${switchSpec}")
@@ -202,11 +223,8 @@ let
                 --flake "''${WORK}#''${FLAKE_ATTR}" \
                 --target-host "''${TARGET_ARG}" \
                 --build-host "''${BUILD_ARG}")
-              if [ "''${#EXTRA_FLAGS[@]}" -gt 0 ]; then
-                for flag in "''${EXTRA_FLAGS[@]}"; do CMD+=("''${flag}"); done
-              fi
 
-              if "''${CMD[@]}"; then
+              if "''${CMD[@]}" "''${EXTRA_FLAGS[@]}"; then
                 add_result "CHANGED" "''${FLAKE_ATTR}" "remote switch"
               else
                 FAILURE_COUNT=$((FAILURE_COUNT + 1))
@@ -429,10 +447,6 @@ in
         Type = "oneshot";
         User = "root";
         ExecStart = "${deployScript}/bin/nix-deploy-run %i";
-        ExecStartPost = [
-          ''${pkgs.curl}/bin/curl -H Content-Type:application/json \
-            -d @"${cfg.report.file}" ${lib.escapeShellArg (cfg.report.url or "https://maxschaefer.me/api/deploy/report")} || true''
-        ];
         WorkingDirectory = cfg.workTree;
       };
     };
@@ -447,10 +461,6 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${deployScript}/bin/nix-deploy-run ${cfg.branch}";
-        ExecStartPost = [
-          ''${pkgs.curl}/bin/curl -H Content-Type:application/json \
-            -d @"${cfg.report.file}" ${lib.escapeShellArg (cfg.report.url or "https://maxschaefer.me/api/deploy/report")} || true''
-        ];
       };
     };
 
