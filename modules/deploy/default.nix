@@ -185,7 +185,7 @@ let
   # Tiny webhook server; reads a secret from a file in the *decrypted* work tree.
   webhookPy = pkgs.writeText "git-webhook.py" ''
     #!/usr/bin/env python3
-    import hmac, hashlib, os
+    import hmac, hashlib, os, subprocess
     from http.server import BaseHTTPRequestHandler, HTTPServer
 
     BRANCH = os.environ.get("WEBHOOK_BRANCH", "main")
@@ -208,6 +208,9 @@ let
     def bad(w, code=403, body=b"FORBIDDEN"):
       ok(w, code, body)
 
+    def trigger():
+      subprocess.run(["systemctl", "start", "--no-block", UNIT], check=False)
+
     class H(BaseHTTPRequestHandler):
       def do_POST(self):
         length = int(self.headers.get('Content-Length','0') or 0)
@@ -217,7 +220,7 @@ let
         # Generic shared header
         token = self.headers.get("X-Deploy-Token", "").encode()
         if secret and hmac.compare_digest(token, secret):
-          os.system("systemctl start " + UNIT)
+          trigger()
           return ok(self, 202, b"Triggered")
 
         # GitHub-style HMAC (harmless for other providers)
@@ -225,7 +228,7 @@ let
         if secret and sig.startswith("sha256="):
           mac = hmac.new(secret, body, hashlib.sha256).hexdigest()
           if hmac.compare_digest(sig.split("=",1)[1], mac):
-            os.system("systemctl start " + UNIT)
+            trigger()
             return ok(self, 202, b"Triggered")
 
         return bad(self)
