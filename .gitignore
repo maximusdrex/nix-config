@@ -1,2 +1,4 @@
 result/
 AGENTS.md
+*.md
+!README.md

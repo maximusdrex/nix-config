@@ -48,6 +48,7 @@
     anytype
     nom
     codex
+    claude-code
     arduino-ide
 
     vlc
