@@ -73,7 +73,9 @@
     };
     gitCrypt = {
       enable      = true;
-      keyFilePath = "/var/lib/nix-deploy/secrets/git-crypt.key";
+      useOpenPGP  = false;  # Set to true once device OpenPGP keys are set up
+      keyFilePath = "/var/lib/nix-deploy/secrets/git-crypt.key";  # Fallback for now
+      gpgHome = "/etc/gpg";
     };
     sshKeyPath = "/var/lib/nix-deploy/secrets/deploy_key";
 
@@ -106,6 +108,20 @@
   };
 
   users.users.nginx.extraGroups = [ "acme" ];
+
+  # Server-specific security settings
+  security.unifiedAuth = {
+    # IMPORTANT: No FIDO2 for SSH on remote servers - only sudo for physical console access
+    fido2.pamServices = [ "sudo" ];  # Only enable for sudo, not sshd
+
+    # Server-specific key rotation (more frequent for public-facing server)
+    keyRotation.schedules.server-monthly = {
+      keyType = "ssh";
+      intervalDays = 60;  # More frequent rotation for server
+      calendar = "monthly";
+      hostPattern = "max-hetzner-nix";
+    };
+  };
 
   # Host config
 

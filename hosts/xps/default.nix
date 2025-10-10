@@ -82,6 +82,28 @@
 
   services.thermald.enable = true;
 
+  # Desktop-specific security settings
+  security.unifiedAuth = {
+    # Enable encrypted drive FIDO2 support (configure when keys arrive)
+    encryptedDrive = {
+      enable = false;  # Enable once security keys are available
+
+      # Example configuration for encrypted root - adjust device path as needed
+      devices = {
+        root = {
+          device = "/dev/nvme0n1p2";  # Check with lsblk - adjust to your setup
+          enableFIDO2 = true;
+          enablePassword = true;  # Keep password fallback
+          enableRecovery = true;
+          fidoDevices = [ "auto" ];
+        };
+      };
+
+      recoveryKeyPath = "/etc/luks-recovery";
+      timeout = 30;
+    };
+  };
+
   # Host config
 
   networking.hostName = "max-xps-modal"; # Define your hostname.

@@ -28,6 +28,7 @@ in
 
   imports = [
     ../modules/home-site-telemetry
+    ../modules/security
     # ../modules/wireguard
   ];
   ######################
@@ -126,7 +127,63 @@ in
   nixpkgs.config.allowUnfree = true;
 
   ######################
-  # 6. Other
+  # 6. Security (Unified Authentication)
+  ######################
+
+  # Enable unified FIDO2/OpenPGP authentication (non-enforcing mode for now)
+  security.unifiedAuth = {
+    enable = true;
+    enforceHardwareKeys = false;  # Set to true once security keys are set up
+
+    # FIDO2 Configuration
+    fido2 = {
+      enable = true;
+      pamServices = [ "login" "sudo" "polkit-1" ];
+      requireTouch = true;
+      requirePin = false;
+      fallbackPassword = true;  # Keep password authentication available
+    };
+
+    # OpenPGP Configuration (per-device keys)
+    openpgp = {
+      enable = true;
+      keyringPath = "/etc/gpg";
+      deviceKeyId = config.networking.hostName;
+      publicKeysPath = "secrets/pgp/public-keys";
+      autoImport = true;
+      cardReaderSupport = true;
+    };
+
+    # Device Provisioning
+    deviceProvision = {
+      enable = true;
+      repoPath = "/var/lib/nix-deploy/work";
+      generateSSHKeys = true;
+      generateWireGuardKeys = true;
+      keyRotationDays = 90;
+      autoCommit = false;  # Manual commits for now
+    };
+
+    # Key Rotation (dry-run mode initially)
+    keyRotation = {
+      enable = true;
+      dryRun = true;  # Set to false once workflow is tested
+      backupPath = "/var/backups/key-rotation";
+      repoPath = "/var/lib/nix-deploy/work";
+
+      schedules = {
+        monthly = {
+          keyType = "all";
+          intervalDays = 90;
+          calendar = "monthly";
+          hostPattern = "*";
+        };
+      };
+    };
+  };
+
+  ######################
+  # 7. Other
   ######################
 
   # services.homeSiteTelemetry = {

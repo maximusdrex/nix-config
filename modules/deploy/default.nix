@@ -173,15 +173,34 @@ let
 
       COMMIT="$(git -C "$WORK" rev-parse --short=12 HEAD || echo unknown)"
   
-      # ----- git-crypt unlock (key-file mode, no GPG) -----
-      ${lib.optionalString cfg.gitCrypt.enable ''
-      if [ -n "''${KEY_FILE:-}" ] && [ -r "''${KEY_FILE}" ]; then
-        echo "[deploy] unlocking repo with git-crypt key-file…"
-        ( cd "$WORK" && git-crypt unlock "''${KEY_FILE}" )
-      else
-        echo "[deploy] WARNING: git-crypt key file missing or unreadable: ''${KEY_FILE}" >&2
-      fi
-      ''}
+      # ----- git-crypt unlock -----
+      ${lib.optionalString cfg.gitCrypt.enable (
+        if cfg.gitCrypt.useOpenPGP then ''
+        # OpenPGP mode: use device key to unlock git-crypt directly
+        export GNUPGHOME="${cfg.gitCrypt.gpgHome}"
+
+        echo "[deploy] unlocking git-crypt with device OpenPGP key…"
+
+        if ( cd "$WORK" && ${pkgs.git-crypt}/bin/git-crypt unlock ); then
+          echo "[deploy] git-crypt unlocked successfully with device key"
+        else
+          echo "[deploy] ERROR: failed to unlock git-crypt with device OpenPGP key" >&2
+          echo "[deploy] Possible causes:" >&2
+          echo "[deploy]   - Device not added to git-crypt (run: git-crypt-add-device)" >&2
+          echo "[deploy]   - OpenPGP private key not available" >&2
+          echo "[deploy]   - Security key not inserted" >&2
+          exit 1
+        fi
+        '' else ''
+        # Traditional key-file mode
+        if [ -n "''${KEY_FILE:-}" ] && [ -r "''${KEY_FILE}" ]; then
+          echo "[deploy] unlocking repo with git-crypt key-file…"
+          ( cd "$WORK" && ${pkgs.git-crypt}/bin/git-crypt unlock "''${KEY_FILE}" )
+        else
+          echo "[deploy] WARNING: git-crypt key file missing or unreadable: ''${KEY_FILE}" >&2
+        fi
+        ''
+      )}
   
       echo "[deploy] nix flake check (eval only)…"
       nix --extra-experimental-features 'nix-command flakes' flake check "$WORK" --no-build || true
@@ -358,6 +377,16 @@ in
         type = lib.types.str;
         default = "/run/secrets/git-crypt.key";
         description = "Runtime path to 'git-crypt export-key' output.";
+      };
+      useOpenPGP = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Use OpenPGP device key to unlock git-crypt directly.";
+      };
+      gpgHome = lib.mkOption {
+        type = lib.types.str;
+        default = "/etc/gpg";
+        description = "GPG home directory for key operations.";
       };
     };
 
