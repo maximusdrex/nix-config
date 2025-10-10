@@ -41,10 +41,16 @@ in
       default = true;
       description = "Enable smart card reader support for OpenPGP cards";
     };
+
+    gitCryptKeyPath = lib.mkOption {
+      type = lib.types.str;
+      default = "/etc/git-crypt/keys/default";
+      description = "Path to git-crypt key file";
+    };
   };
 
   config = lib.mkIf pgpCfg.enable {
-    # Required packages
+    # Required packages and helper scripts
     environment.systemPackages = with pkgs; [
       gnupg
       paperkey
@@ -54,76 +60,8 @@ in
     ] ++ lib.optionals pgpCfg.cardReaderSupport [
       pcsclite
       ccid
-    ];
-
-    # GPG agent configuration
-    programs.gnupg.agent = {
-      enable = true;
-      enableSSHSupport = true;
-      pinentryPackage = if config.services.xserver.enable
-        then pkgs.pinentry-gtk2
-        else pkgs.pinentry-curses;
-    };
-
-    # Smart card support
-    services.pcscd.enable = pgpCfg.cardReaderSupport;
-
-    # Create system GPG directory
-    systemd.tmpfiles.rules = [
-      "d ${pgpCfg.keyringPath} 0700 root root - -"
-      "d ${lib.dirOf pgpCfg.gitCryptKeyPath} 0700 root root - -"
-    ];
-
-    # GPG configuration for system use
-    environment.etc."gpg/gpg.conf".text = ''
-      # Security settings
-      personal-cipher-preferences AES256 AES192 AES
-      personal-digest-preferences SHA512 SHA384 SHA256
-      personal-compress-preferences ZLIB BZIP2 ZIP Uncompressed
-      default-preference-list SHA512 SHA384 SHA256 AES256 AES192 AES ZLIB BZIP2 ZIP Uncompressed
-      cert-digest-algo SHA512
-      s2k-digest-algo SHA512
-      s2k-cipher-algo AES256
-      charset utf-8
-      fixed-list-mode
-      no-comments
-      no-emit-version
-      keyid-format 0xlong
-      list-options show-uid-validity
-      verify-options show-uid-validity
-      with-fingerprint
-      require-cross-certification
-      no-symkey-cache
-      use-agent
-      throw-keyids
-
-      # Keyserver settings
-      keyserver hkps://keys.openpgp.org
-      keyserver-options no-honor-keyserver-url include-revoked
-
-      # Smart card settings
-      ${lib.optionalString pgpCfg.cardReaderSupport ''
-      reader-port "$(pcscd)"
-      card-timeout 5
-      ''}
-    '';
-
-    environment.etc."gpg/gpg-agent.conf".text = ''
-      pinentry-program ${if config.services.xserver.enable
-        then "${pkgs.pinentry-gtk2}/bin/pinentry-gtk2"
-        else "${pkgs.pinentry-curses}/bin/pinentry-curses"}
-
-      default-cache-ttl 600
-      max-cache-ttl 7200
-      enable-ssh-support
-
-      ${lib.optionalString pgpCfg.cardReaderSupport ''
-      scdaemon-program ${pkgs.gnupg}/libexec/scdaemon
-      ''}
-    '';
-
-    # Helper scripts for key management
-    environment.systemPackages = [
+    ] ++ [
+      # Helper scripts for key management
       (pkgs.writeShellScriptBin "pgp-setup" ''
         set -euo pipefail
 
@@ -137,12 +75,17 @@ in
         chmod 700 "$GPG_HOME"
 
         # Check for smart card
-        if ${lib.optionalString pgpCfg.cardReaderSupport "${pkgs.gnupg}/bin/gpg --card-status >/dev/null 2>&1"}; then
+        ${lib.optionalString pgpCfg.cardReaderSupport ''
+        if ${pkgs.gnupg}/bin/gpg --card-status >/dev/null 2>&1; then
           echo "Smart card detected!"
           ${pkgs.gnupg}/bin/gpg --card-status
         else
           echo "No smart card detected. Insert your OpenPGP card and run again."
         fi
+        ''}
+        ${lib.optionalString (!pgpCfg.cardReaderSupport) ''
+        echo "Smart card support disabled in configuration"
+        ''}
 
         echo "GPG setup complete. GPG home: $GPG_HOME"
       '')
@@ -279,6 +222,74 @@ in
         ls -la "$BACKUP_DIR"/*-$TIMESTAMP.*
       '')
     ];
+
+    # GPG agent configuration
+    programs.gnupg.agent = {
+      enable = true;
+      enableSSHSupport = true;
+      pinentryPackage = if config.services.xserver.enable
+        then pkgs.pinentry-gtk2
+        else pkgs.pinentry-curses;
+    };
+
+    # Smart card support
+    services.pcscd.enable = pgpCfg.cardReaderSupport;
+
+    # Create system GPG directory
+    systemd.tmpfiles.rules = [
+      "d ${pgpCfg.keyringPath} 0700 root root - -"
+      "d ${builtins.dirOf pgpCfg.gitCryptKeyPath} 0700 root root - -"
+    ];
+
+    # GPG configuration for system use
+    environment.etc."gpg/gpg.conf".text = ''
+      # Security settings
+      personal-cipher-preferences AES256 AES192 AES
+      personal-digest-preferences SHA512 SHA384 SHA256
+      personal-compress-preferences ZLIB BZIP2 ZIP Uncompressed
+      default-preference-list SHA512 SHA384 SHA256 AES256 AES192 AES ZLIB BZIP2 ZIP Uncompressed
+      cert-digest-algo SHA512
+      s2k-digest-algo SHA512
+      s2k-cipher-algo AES256
+      charset utf-8
+      fixed-list-mode
+      no-comments
+      no-emit-version
+      keyid-format 0xlong
+      list-options show-uid-validity
+      verify-options show-uid-validity
+      with-fingerprint
+      require-cross-certification
+      no-symkey-cache
+      use-agent
+      throw-keyids
+
+      # Keyserver settings
+      keyserver hkps://keys.openpgp.org
+      keyserver-options no-honor-keyserver-url include-revoked
+
+      # Smart card settings
+      ${lib.optionalString pgpCfg.cardReaderSupport ''
+      reader-port "$(pcscd)"
+      card-timeout 5
+      ''}
+    '';
+
+    environment.etc."gpg/gpg-agent.conf".text = ''
+      pinentry-program ${if config.services.xserver.enable
+        then "${pkgs.pinentry-gtk2}/bin/pinentry-gtk2"
+        else "${pkgs.pinentry-curses}/bin/pinentry-curses"}
+
+      default-cache-ttl 600
+      max-cache-ttl 7200
+      enable-ssh-support
+
+      ${lib.optionalString pgpCfg.cardReaderSupport ''
+      scdaemon-program ${pkgs.gnupg}/libexec/scdaemon
+      ''}
+    '';
+
+    # Helper scripts are now included in the main systemPackages list above
 
     # Systemd service for key synchronization
     systemd.services.openpgp-sync = {

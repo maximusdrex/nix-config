@@ -90,28 +90,12 @@ in
   };
 
   config = lib.mkIf driveCfg.enable {
-    # Required packages for FIDO2 LUKS support
+    # Required packages and helper scripts for FIDO2 LUKS support
     environment.systemPackages = with pkgs; [
       systemd  # systemd-cryptenroll
       cryptsetup
       libfido2
-    ];
-
-    # Ensure systemd version supports FIDO2
-    assertions = [
-      {
-        assertion = lib.versionAtLeast pkgs.systemd.version "248";
-        message = "FIDO2 LUKS support requires systemd >= 248";
-      }
-    ];
-
-    # Create recovery key directory
-    systemd.tmpfiles.rules = [
-      "d ${driveCfg.recoveryKeyPath} 0700 root root - -"
-    ];
-
-    # Helper scripts for FIDO2 drive management
-    environment.systemPackages = [
+    ] ++ [
       (pkgs.writeShellScriptBin "luks-setup-fido2" ''
         set -euo pipefail
 
@@ -313,6 +297,19 @@ in
         echo "Backup directory: $BACKUP_DIR"
         ls -la "$BACKUP_DIR"
       '')
+    ];
+
+    # Ensure systemd version supports FIDO2
+    assertions = [
+      {
+        assertion = lib.versionAtLeast pkgs.systemd.version "248";
+        message = "FIDO2 LUKS support requires systemd >= 248";
+      }
+    ];
+
+    # Create recovery key directory
+    systemd.tmpfiles.rules = [
+      "d ${driveCfg.recoveryKeyPath} 0700 root root - -"
     ];
 
     # Boot configuration for FIDO2 devices

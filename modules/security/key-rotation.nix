@@ -76,20 +76,12 @@ in
   };
 
   config = lib.mkIf rotationCfg.enable {
-    # Required packages
+    # Required packages and key rotation script
     environment.systemPackages = with pkgs; [
       git
       openssh
       wireguard-tools
-    ];
-
-    # Create backup directory
-    systemd.tmpfiles.rules = [
-      "d ${rotationCfg.backupPath} 0700 root root - -"
-    ];
-
-    # Key rotation script
-    environment.systemPackages = [
+    ] ++ [
       (pkgs.writeShellScriptBin "rotate-keys" ''
         set -euo pipefail
 
@@ -118,7 +110,7 @@ in
           KEY_TYPE="${schedule.keyType}"
           INTERVAL_DAYS="${toString schedule.intervalDays}"
           HOST_PATTERN="${schedule.hostPattern}"
-          NOTIFY_EMAIL="${schedule.notifyEmail or ""}"
+          NOTIFY_EMAIL="${if schedule.notifyEmail != null then schedule.notifyEmail else ""}"
         fi
         '') rotationCfg.schedules)}
 
@@ -183,7 +175,7 @@ in
 
               # Replace private key (encrypted if possible)
               if command -v gpg >/dev/null && [ -n "''${GPGKEY:-}" ]; then
-                export GNUPGHOME="${config.security.unifiedAuth.openpgp.keyringPath or "/etc/gpg"}"
+                export GNUPGHOME="${if config.security.unifiedAuth.openpgp.enable then config.security.unifiedAuth.openpgp.keyringPath else "/etc/gpg"}"
                 gpg --encrypt --armor --recipient "''${GPGKEY}" \
                   --output "$priv_key_enc" "/tmp/ssh_$hostname"
                 rm "/tmp/ssh_$hostname"
@@ -243,7 +235,7 @@ in
 
               # Replace private key (encrypted if possible)
               if command -v gpg >/dev/null && [ -n "''${GPGKEY:-}" ]; then
-                export GNUPGHOME="${config.security.unifiedAuth.openpgp.keyringPath or "/etc/gpg"}"
+                export GNUPGHOME="${if config.security.unifiedAuth.openpgp.enable then config.security.unifiedAuth.openpgp.keyringPath else "/etc/gpg"}"
                 echo "$WG_PRIVATE" | gpg --encrypt --armor --recipient "''${GPGKEY}" \
                   --output "$priv_key_enc"
                 # Remove old plaintext key if it exists
@@ -368,6 +360,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
           fi
         fi
       '')
+    ];
+
+    # Create backup directory
+    systemd.tmpfiles.rules = [
+      "d ${rotationCfg.backupPath} 0700 root root - -"
     ];
 
     # Systemd services for each rotation schedule

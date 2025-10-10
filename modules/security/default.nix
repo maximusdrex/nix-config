@@ -43,12 +43,7 @@
       pinentry-gtk2
     ];
 
-    # GPG configuration
-    programs.gnupg.agent = {
-      enable = true;
-      enableSSHSupport = true;
-      pinentryPackage = pkgs.pinentry-gtk2;
-    };
+    # GPG configuration is handled by the OpenPGP module
 
     # Ensure required services are available
     services.pcscd.enable = true;  # Smart card daemon for OpenPGP

@@ -36,6 +36,12 @@ in
       description = "Allow password fallback if FIDO2 fails";
     };
 
+    enableOptionalAuth = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable optional FIDO2 authentication when not enforcing hardware keys";
+    };
+
     credentialPath = lib.mkOption {
       type = lib.types.str;
       default = "/etc/fido2-credentials";
@@ -44,52 +50,11 @@ in
   };
 
   config = lib.mkIf fido2Cfg.enable {
-    # Install required packages
+    # Install required packages and helper scripts
     environment.systemPackages = with pkgs; [
       libfido2
       pam_u2f
-    ];
-
-    # Create credentials directory
-    systemd.tmpfiles.rules = [
-      "d ${fido2Cfg.credentialPath} 0755 root root - -"
-    ];
-
-    # Configure PAM services
-    security.pam.services = lib.genAttrs fido2Cfg.pamServices (service: {
-      u2fAuth = lib.mkIf cfg.enforceHardwareKeys true;
-      # When not enforcing, we'll add the module but make it optional
-      text = lib.mkIf (!cfg.enforceHardwareKeys) (lib.mkBefore ''
-        # FIDO2 authentication (optional during setup)
-        auth optional ${pkgs.pam_u2f}/lib/security/pam_u2f.so \
-          authfile=${fido2Cfg.credentialPath}/%u \
-          cue ${lib.optionalString fido2Cfg.requireTouch "touch=1"} \
-          ${lib.optionalString fido2Cfg.requirePin "pin=1"}
-      '');
-    });
-
-    # SSH FIDO2 support
-    services.openssh.settings = {
-      PubkeyAuthOptions = lib.mkIf cfg.enforceHardwareKeys "touch-required,verify-required";
-    };
-
-    # Environment for FIDO2 tools
-    environment.sessionVariables = {
-      FIDO_DEBUG = lib.mkIf config.boot.kernelParams.debug "1";
-    };
-
-    # Udev rules for FIDO2 devices
-    services.udev.extraRules = ''
-      # Allow users to access FIDO2 devices
-      SUBSYSTEM=="hidraw", ATTRS{idVendor}=="2581", MODE="0664", GROUP="users", TAG+="uaccess"
-      SUBSYSTEM=="usb", ATTRS{idVendor}=="2581", MODE="0664", GROUP="users", TAG+="uaccess"
-
-      # General FIDO2 device rules
-      KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idUsage}=="3f", ATTRS{idUsagePage}=="f1d0", MODE="0664", GROUP="users", TAG+="uaccess"
-    '';
-
-    # Helper script for credential management
-    environment.systemPackages = [
+    ] ++ [
       (pkgs.writeShellScriptBin "fido2-register" ''
         set -euo pipefail
 
@@ -140,6 +105,48 @@ in
         ${pkgs.pam_u2f}/bin/pamu2fcfg -u "$USER" -v
       '')
     ];
+
+    # Create credentials directory
+    systemd.tmpfiles.rules = [
+      "d ${fido2Cfg.credentialPath} 0755 root root - -"
+    ];
+
+    # Configure PAM services
+    security.pam.services = lib.genAttrs fido2Cfg.pamServices (service: {
+      # When enforcing hardware keys, use the built-in u2fAuth
+      u2fAuth = lib.mkIf cfg.enforceHardwareKeys true;
+
+      # When not enforcing, add FIDO2 as optional using proper PAM rules
+      rules.auth.fido2-optional = lib.mkIf (!cfg.enforceHardwareKeys && fido2Cfg.enableOptionalAuth) {
+        order = 10000; # Run before standard auth
+        control = "optional"; # Don't block if this fails
+        modulePath = "${pkgs.pam_u2f}/lib/security/pam_u2f.so";
+        args = [
+          "authfile=${fido2Cfg.credentialPath}/%u"
+        ] ++ lib.optionals fido2Cfg.requireTouch [ "cue" "touch=1" ]
+          ++ lib.optionals fido2Cfg.requirePin [ "pin=1" ];
+      };
+    });
+
+    # SSH FIDO2 support
+    services.openssh.settings = {
+      PubkeyAuthOptions = lib.mkIf cfg.enforceHardwareKeys "touch-required,verify-required";
+    };
+
+    # Environment for FIDO2 tools
+    environment.sessionVariables = {
+      FIDO_DEBUG = lib.mkIf (lib.elem "debug" config.boot.kernelParams) "1";
+    };
+
+    # Udev rules for FIDO2 devices
+    services.udev.extraRules = ''
+      # Allow users to access FIDO2 devices
+      SUBSYSTEM=="hidraw", ATTRS{idVendor}=="2581", MODE="0664", GROUP="users", TAG+="uaccess"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="2581", MODE="0664", GROUP="users", TAG+="uaccess"
+
+      # General FIDO2 device rules
+      KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idUsage}=="3f", ATTRS{idUsagePage}=="f1d0", MODE="0664", GROUP="users", TAG+="uaccess"
+    '';
 
     # Systemd service for credential backup (when we have the keys)
     systemd.services.fido2-credential-backup = {

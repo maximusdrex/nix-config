@@ -109,19 +109,7 @@
 
   users.users.nginx.extraGroups = [ "acme" ];
 
-  # Server-specific security settings
-  security.unifiedAuth = {
-    # IMPORTANT: No FIDO2 for SSH on remote servers - only sudo for physical console access
-    fido2.pamServices = [ "sudo" ];  # Only enable for sudo, not sshd
-
-    # Server-specific key rotation (more frequent for public-facing server)
-    keyRotation.schedules.server-monthly = {
-      keyType = "ssh";
-      intervalDays = 60;  # More frequent rotation for server
-      calendar = "monthly";
-      hostPattern = "max-hetzner-nix";
-    };
-  };
+  # Server-specific security settings - temporarily disabled
 
   # Host config
 

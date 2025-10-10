@@ -44,15 +44,12 @@ in
   };
 
   config = lib.mkIf provisionCfg.enable {
-    # Required packages for key generation
+    # Required packages and helper scripts for device provisioning
     environment.systemPackages = with pkgs; [
       openssh
       wireguard-tools
       git
-    ];
-
-    # Helper scripts for device provisioning
-    environment.systemPackages = [
+    ] ++ [
       (pkgs.writeShellScriptBin "provision-device" ''
         set -euo pipefail
 
