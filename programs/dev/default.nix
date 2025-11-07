@@ -37,7 +37,7 @@
     ethtool
     pciutils # lspci
     usbutils # lsusb
-    jstest-gtk
+    # jstest-gtk build failed
     linuxConsoleTools
 
     # Python

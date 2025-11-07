@@ -32,11 +32,10 @@
     caligula
     wireguard-tools
     vlc
-    rpi-imager
     libreoffice-qt6-fresh
     discord
     pulseview
-    openscad-unstable
+    # openscad-unstable
     nvc
     particle-cli
   ];
