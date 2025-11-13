@@ -46,11 +46,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1759713095,
-        "narHash": "sha256-C47Ir5aoA1trjdrC7Q1zMXGa3iC0uiNaKmtJ8oxPRU0=",
+        "lastModified": 1763073577,
+        "narHash": "sha256-sRTGVG9Z0qnqjtmJL5j8ng6nEZysSrAsuOvepJ1Cz98=",
         "ref": "refs/heads/main",
-        "rev": "cd91e542d89589b5c65a6efc7e6f8973e42173ce",
-        "revCount": 9,
+        "rev": "6319b11f17381e16d6afcec57c5c62de34a4df87",
+        "revCount": 10,
         "type": "git",
         "url": "ssh://git@github.com/maximusdrex/home-site.git"
       },
