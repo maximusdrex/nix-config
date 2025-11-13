@@ -14,14 +14,11 @@ in
       PasswordAuthentication = false;
       AllowUsers = null;
       UseDns = true;
-      PubkeyAcceptedKeyTypes =
-        lib.concatStringsSep "," [
-          "ssh-ed25519"
-          "ssh-ed25519-sk"
-          "sk-ecdsa-sha2-nistp256@openssh.com"
-          "ecdsa-sha2-nistp256"
-        ];
     };
+    extraConfig = ''
+      # Accept resident WebAuthn keys in addition to the defaults
+      PubkeyAcceptedKeyTypes +ssh-ed25519-sk,+sk-ecdsa-sha2-nistp256@openssh.com
+    '';
   };
 
   users.users.max.openssh.authorizedKeys.keys = ssh-keys;
