@@ -16,8 +16,8 @@ in
       UseDns = true;
     };
     extraConfig = ''
-      # Accept resident WebAuthn keys in addition to the defaults
-      PubkeyAcceptedKeyTypes +ssh-ed25519-sk,+sk-ecdsa-sha2-nistp256@openssh.com
+      # Accept classic Ed25519 and WebAuthn Ed25519-SK keys
+      PubkeyAcceptedKeyTypes ssh-ed25519 ssh-ed25519-sk
     '';
   };
 
