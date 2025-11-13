@@ -14,11 +14,8 @@ in
       PasswordAuthentication = false;
       AllowUsers = null;
       UseDns = true;
+      PubkeyAcceptedKeyTypes = "ssh-ed25519,ssh-ed25519-sk";
     };
-    extraConfig = ''
-      # Accept classic Ed25519 and WebAuthn Ed25519-SK keys
-      PubkeyAcceptedKeyTypes ssh-ed25519 ssh-ed25519-sk
-    '';
   };
 
   users.users.max.openssh.authorizedKeys.keys = ssh-keys;
