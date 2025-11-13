@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   ssh-keys = import ./ssh-keys.nix { inherit pkgs; };
@@ -14,12 +14,13 @@ in
       PasswordAuthentication = false;
       AllowUsers = null;
       UseDns = true;
-      PubkeyAcceptedKeyTypes = [
-        "ssh-ed25519"
-        "ssh-ed25519-sk"
-        "sk-ecdsa-sha2-nistp256@openssh.com"
-        "ecdsa-sha2-nistp256"
-      ];
+      PubkeyAcceptedKeyTypes =
+        lib.concatStringsSep "," [
+          "ssh-ed25519"
+          "ssh-ed25519-sk"
+          "sk-ecdsa-sha2-nistp256@openssh.com"
+          "ecdsa-sha2-nistp256"
+        ];
     };
   };
 
