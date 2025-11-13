@@ -34,6 +34,11 @@
     extraGroups = [ "wheel" "docker" ];
   };
 
+  security.unifiedAuth.sshAgentSudo = {
+    enable = true;
+    users = [ "max" ];
+  };
+
 
   ######################
   # 5. Nix Config

@@ -129,7 +129,10 @@
     };
   };
 
-  # Desktop-specific security settings - temporarily disabled
+  # Desktop-specific security settings
+  security.unifiedAuth = {
+    keyDevices = [ "auto" ];
+  };
 
   # Host config
 

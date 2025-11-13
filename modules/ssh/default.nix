@@ -14,6 +14,12 @@ in
       PasswordAuthentication = false;
       AllowUsers = null;
       UseDns = true;
+      PubkeyAcceptedKeyTypes = [
+        "ssh-ed25519"
+        "ssh-ed25519-sk"
+        "sk-ecdsa-sha2-nistp256@openssh.com"
+        "ecdsa-sha2-nistp256"
+      ];
     };
   };
 

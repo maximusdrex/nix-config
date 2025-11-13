@@ -14,6 +14,8 @@
     gnupg
     htop
  
+    gum
+
     # nix
 
     direnv
