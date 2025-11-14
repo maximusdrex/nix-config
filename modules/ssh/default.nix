@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, ... }:
 
 let
   ssh-keys = import ./ssh-keys.nix { inherit pkgs; };
@@ -14,7 +14,6 @@ in
       PasswordAuthentication = false;
       AllowUsers = null;
       UseDns = true;
-      PubkeyAcceptedKeyTypes = "ssh-ed25519,ssh-ed25519-sk";
     };
   };
 
