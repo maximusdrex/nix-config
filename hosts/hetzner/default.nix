@@ -13,7 +13,6 @@
        ../../modules/wireguard
        ../../modules/wireguard/peers-export.nix
        ../../modules/edge-proxy
-       ../../modules/actual
        ../../modules/deploy
        ../../modules/home-site
     ];
@@ -114,9 +113,10 @@
 
   services.actual = {
     enable = true;
-    dataDir = "/var/lib/actual";
-    port = 5006;
-    hostname = "0.0.0.0";
+    settings = {
+      port = 5006;
+      hostname = "0.0.0.0";
+    };
   };
 
   users.users.nginx.extraGroups = [ "acme" ];
