@@ -13,6 +13,7 @@
        ../../modules/wireguard
        ../../modules/wireguard/peers-export.nix
        ../../modules/edge-proxy
+       ../../modules/actual
        ../../modules/deploy
        ../../modules/home-site
     ];
@@ -54,6 +55,10 @@
     sites."home.maxschaefer.me" = {
       upstreamHost = "max-richard-nix";   # resolves to max-richard-nix.wg via the module
       upstreamPort = 8123;                # Home Assistant
+    };
+    sites."budget.maxschaefer.me" = {
+      upstreamHost = "max-hetzner-nix";
+      upstreamPort = 5006;
     };
     # Add more sites later by extending 'sites'
   };
@@ -105,6 +110,13 @@
     enable = true;
     domain = "maxschaefer.me";
     secretEnvFile = "/var/lib/home-site/secrets/env";
+  };
+
+  services.actual = {
+    enable = true;
+    dataDir = "/var/lib/actual";
+    port = 5006;
+    hostname = "0.0.0.0";
   };
 
   users.users.nginx.extraGroups = [ "acme" ];
