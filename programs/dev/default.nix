@@ -2,6 +2,21 @@
 
 {
 
+  services.emacs = {
+    enable=true;
+    defaultEditor=true;
+  };
+
+  programs.emacs = {
+    enable=true;
+    package=pkgs.emacs;
+    extraPackages= epkgs: [
+      epkgs.org
+      epkgs.nixfmt
+      epkgs.nix-mode
+    ];
+  };
+
   home.packages = with pkgs; [
     # networking tools
 
