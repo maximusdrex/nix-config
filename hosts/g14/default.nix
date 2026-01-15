@@ -10,6 +10,7 @@
     [ 
        ./hardware-configuration.nix
        ../../common/desktop
+       ../../modules/sigrok
        ../../modules/wavemux
        ../../modules/wireguard
     ];
@@ -66,6 +67,8 @@
   # 6. Other
   ######################
 
+  programs.fuse.enable = true;
+
   # RTL-SDR
 
   services.udev.packages = [ pkgs.rtl-sdr ];
@@ -73,6 +76,12 @@
     SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0002", NAME="wmx0"
     SUBSYSTEMS=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="607[df]", GROUP="plugdev", MODE="0666"
     SUBSYSTEMS=="usb", ATTRS{idVendor}=="2b04", ATTRS{idProduct}=="[cd]00?", GROUP="plugdev", MODE="0666"
+
+SUBSYSTEM!="usb|usb_device", GOTO="sipeed_rules_end"
+ACTION!="add", GOTO="sipeed_rules_end"
+ATTRS{idVendor}=="359f", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+ENV{ID_MM_DEVICE_IGNORE}="1"
+LABEL="sipeed_rules_end"
   '';
   hardware.rtl-sdr.enable = true;
 
@@ -110,6 +119,8 @@
   # services.xserver.videoDrivers = [ "nvidia" ];
 
   environment.systemPackages = with pkgs; [
+    pulseview
+    sigrok-cli
     mangohud
     protonup-qt
     lutris

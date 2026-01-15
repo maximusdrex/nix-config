@@ -101,7 +101,6 @@
   # Install some programs.
 
   programs.firefox.enable = true;
-  programs.adb.enable = true;
   hardware.saleae-logic.enable = true;
   programs.nix-ld.enable = true;
   programs.wireshark.enable = true;

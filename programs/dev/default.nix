@@ -10,11 +10,6 @@
   programs.emacs = {
     enable=true;
     package=pkgs.emacs;
-    extraPackages= epkgs: [
-      epkgs.org
-      epkgs.nixfmt
-      epkgs.nix-mode
-    ];
   };
 
   home.packages = with pkgs; [
@@ -66,6 +61,8 @@
     ninja
     just
     inetutils
+
+    android-tools
 
     wishlist
     go
