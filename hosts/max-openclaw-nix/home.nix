@@ -37,6 +37,9 @@
       gateway = {
         mode = "local";
         bind = "lan";
+        controlUi = {
+          allowInsecureAuth = true;
+        };
         auth = {
           mode = "token";
           token = lib.strings.fileContents ../../secrets/openclaw/gateway-token;
@@ -48,6 +51,7 @@
       };
       env.vars = {
         ANTHROPIC_API_KEY = lib.strings.fileContents ../../secrets/openclaw/anthropic-api-key;
+        CODEX_HOME = toString ../../secrets/openclaw/codex;
       };
     };
   };
