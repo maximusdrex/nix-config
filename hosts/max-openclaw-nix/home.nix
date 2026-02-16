@@ -16,6 +16,7 @@
   ];
 
   home.file.".openclaw/openclaw.json".force = true;
+  systemd.user.services.openclaw-gateway.Install.WantedBy = [ "default.target" ];
 
   programs.openclaw = {
     enable = true;
