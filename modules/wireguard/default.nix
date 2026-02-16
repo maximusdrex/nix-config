@@ -31,6 +31,7 @@ in
           publicKey = (builtins.readFile ../../secrets/wireguard/public/max-hetzner-nix);
           allowedIPs = [ "10.20.0.0/24" ];
           persistentKeepalive = 20;
+          dynamicEndpointRefreshSeconds = 30;
         }
       ];
     
