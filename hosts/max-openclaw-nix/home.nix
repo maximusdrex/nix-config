@@ -21,6 +21,7 @@
   programs.openclaw = {
     enable = true;
     documents = ./documents;
+    exposePluginPackages = false;
     bundledPlugins = {
       summarize.enable = true;
       oracle.enable = true;
