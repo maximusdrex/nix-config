@@ -22,6 +22,18 @@
     enable = true;
     documents = ./documents;
     config = {
+      agents.defaults.model.primary = "openai-codex/gpt-5.3-codex";
+      auth = {
+        profiles = {
+          "openai-codex:default" = {
+            provider = "openai-codex";
+            mode = "oauth";
+          };
+        };
+        order = {
+          "openai-codex" = [ "openai-codex:default" ];
+        };
+      };
       gateway = {
         mode = "local";
         bind = "lan";
