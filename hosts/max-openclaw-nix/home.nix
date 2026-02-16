@@ -21,6 +21,12 @@
   programs.openclaw = {
     enable = true;
     documents = ./documents;
+    bundledPlugins = {
+      summarize.enable = true;
+      peekaboo.enable = true;
+      oracle.enable = true;
+      camsnap.enable = true;
+    };
     config = {
       agents.defaults.model.primary = "openai-codex/gpt-5.3-codex";
       auth = {
