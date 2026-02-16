@@ -15,6 +15,8 @@
     ../../programs/onedrive
   ];
 
+  home.file.".openclaw/openclaw.json".force = true;
+
   programs.openclaw = {
     enable = true;
     documents = ./documents;
