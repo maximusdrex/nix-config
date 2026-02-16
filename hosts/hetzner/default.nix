@@ -59,6 +59,10 @@
       upstreamHost = "max-hetzner-nix";
       upstreamPort = 5006;
     };
+    sites."openclaw.maxschaefer.me" = {
+      upstreamHost = "max-openclaw-nix";
+      upstreamPort = 18789;
+    };
     # Add more sites later by extending 'sites'
   };
 

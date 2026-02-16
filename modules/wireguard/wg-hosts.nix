@@ -7,6 +7,13 @@
   }
   
   {
+    hostname = "max-openclaw-nix";
+    ip = "10.20.0.2";
+    pubkeyFile = "/public/max-openclaw-nix";
+    server = builtins.false;
+  }
+
+  {
     hostname = "max-xps-modal"; 
     ip = "10.20.0.4";
     pubkeyFile = "/public/max-xps-modal";

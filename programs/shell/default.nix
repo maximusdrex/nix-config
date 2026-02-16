@@ -20,6 +20,8 @@
 
     direnv
     # nix-output-monitor
+
+    benhsm-minesweeper
   ];
 
   programs.direnv = {

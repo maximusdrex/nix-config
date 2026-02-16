@@ -3,3 +3,4 @@ result
 AGENTS.md
 *.md
 !README.md
+!hosts/**/documents/*.md

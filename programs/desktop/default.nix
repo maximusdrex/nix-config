@@ -20,7 +20,7 @@
     # jetbrains.rust-rover
     jetbrains-toolbox
     jetbrains.clion
-    jetbrains.pycharm-professional
+    jetbrains.pycharm
     distrobox
     distrobox-tui
     wireshark
@@ -56,7 +56,7 @@
 
   programs.jetbrains-remote = {
     enable = true;
-    ides = with pkgs.jetbrains; [ clion pycharm-professional ];
+    ides = with pkgs.jetbrains; [ clion pycharm ];
   };
 
   programs.vscode.enable = true;

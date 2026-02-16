@@ -12,6 +12,11 @@
       url = "git+ssh://git@github.com/maximusdrex/home-site.git";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-openclaw = {
+      url = "github:openclaw/nix-openclaw";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixos-hardware, ... }@inputs: {
@@ -69,6 +74,25 @@
             home-manager.useUserPackages = true;
 
             home-manager.users.max = import ./hosts/hetzner/home.nix;
+          }
+        ];
+      };
+
+      max-openclaw-nix = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit inputs self; };
+        modules = [
+          ./hosts/max-openclaw-nix
+
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.sharedModules = [
+              inputs.nix-openclaw.homeManagerModules.openclaw
+            ];
+
+            home-manager.users.max = import ./hosts/max-openclaw-nix/home.nix;
           }
         ];
       };

@@ -129,6 +129,7 @@ LABEL="sipeed_rules_end"
     umu-launcher
     vkd3d-proton
     dxvk
+    waydroid-helper
   ];
 
   services.homeSiteTelemetry = {
@@ -146,6 +147,10 @@ LABEL="sipeed_rules_end"
   };
 
   # Host config
+
+  # ATAK
+  virtualisation.waydroid.enable = true;
+  virtualisation.waydroid.package = pkgs.waydroid-nftables;
 
   networking.hostName = "max-g14-nix"; # Define your hostname.
 
