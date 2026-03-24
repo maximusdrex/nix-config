@@ -1,26 +1,16 @@
-{ config, pkgs, lib, ... }:
-
+{ lib, ... }:
 {
   home.username = "max";
   home.homeDirectory = "/home/max";
-
   home.stateVersion = "25.05";
   programs.home-manager.enable = true;
-
-  imports = [
-    ../programs
-    ../programs/shell
-    ../programs/dev
-    ../programs/container
-    ../programs/onedrive
-  ];
 
   home.file.".openclaw/openclaw.json".force = true;
   systemd.user.services.openclaw-gateway.Install.WantedBy = [ "default.target" ];
 
   programs.openclaw = {
     enable = true;
-    documents = ./documents;
+    documents = ../machines/max-openclaw-nix/documents;
     exposePluginPackages = false;
     bundledPlugins = {
       summarize.enable = true;
@@ -42,21 +32,19 @@
       gateway = {
         mode = "local";
         bind = "lan";
-        controlUi = {
-          allowInsecureAuth = true;
-        };
+        controlUi.allowInsecureAuth = true;
         auth = {
           mode = "token";
-          token = lib.strings.fileContents ../secrets/openclaw/gateway-token;
+          token = builtins.getEnv "OPENCLAW_GATEWAY_TOKEN";
         };
       };
       channels.telegram = {
-        tokenFile = toString ../secrets/openclaw/telegram-token;
+        tokenFile = builtins.getEnv "OPENCLAW_TELEGRAM_TOKEN_FILE";
         allowFrom = [ 12345678 ];
       };
       env.vars = {
-        ANTHROPIC_API_KEY = lib.strings.fileContents ../secrets/openclaw/anthropic-api-key;
-        CODEX_HOME = toString ../secrets/openclaw/codex;
+        ANTHROPIC_API_KEY = builtins.getEnv "ANTHROPIC_API_KEY";
+        CODEX_HOME = builtins.getEnv "CODEX_HOME";
       };
     };
   };

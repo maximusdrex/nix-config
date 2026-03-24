@@ -9,7 +9,7 @@
   imports =
     [ 
        ./hardware-configuration.nix
-       ../../common/desktop
+       ../../roles/desktop
        ../../modules/wavemux
        ../../modules/wireguard
     ];

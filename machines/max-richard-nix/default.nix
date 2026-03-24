@@ -9,7 +9,7 @@
   imports =
     [ 
        ./hardware-configuration.nix
-       ../../common/server
+       ../../roles/server
        ../../modules/wireguard
        ../../modules/home-assistant
     ];

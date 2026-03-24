@@ -51,6 +51,38 @@
       };
     };
 
+    user-max = {
+      module.name = "users";
+      roles.default.tags.all = { };
+      roles.default.settings = {
+        user = "max";
+        prompt = true;
+      };
+    };
+
+    packages-all = {
+      module.name = "packages";
+      roles.default.tags.all = { };
+      roles.default.settings.packages = [
+        "git" "vim" "wget" "curl" "jq" "htop" "fastfetch" "tree"
+      ];
+    };
+
+    packages-server = {
+      module.name = "packages";
+      roles.default.tags.server = { };
+      roles.default.settings.packages = [ "tmux" "ripgrep" ];
+    };
+
+    packages-desktop = {
+      module.name = "packages";
+      roles.default.tags.desktop = { };
+      roles.default.settings.packages = [
+        "vlc" "discord" "keepassxc" "rclone" "libreoffice-qt6-fresh"
+        "pulseview" "sigrok-cli" "mangohud" "lutris" "bottles" "heroic"
+      ];
+    };
+
     zerotier = {
       roles.controller.machines."max-hetzner-nix" = { };
       roles.peer.tags.all = { };
