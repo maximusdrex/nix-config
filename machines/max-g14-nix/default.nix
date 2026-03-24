@@ -12,7 +12,6 @@
        ../../roles/desktop.nix
        ../../modules/sigrok
        ../../modules/wavemux
-       ../../modules/wireguard
     ];
 
   ######################
@@ -142,9 +141,7 @@ LABEL="sipeed_rules_end"
   };
 
   # Desktop-specific security settings
-  security.unifiedAuth = {
-    keyDevices = [ "auto" ];
-  };
+  # unifiedAuth removed in Clan-first refactor; use Clan vars/age plugins instead.
 
   # Host config
 

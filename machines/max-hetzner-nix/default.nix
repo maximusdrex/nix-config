@@ -10,8 +10,6 @@
     [ 
        ./hardware-configuration.nix
        ../../roles/server.nix
-       ../../modules/wireguard
-       ../../modules/wireguard/peers-export.nix
        ../../modules/edge-proxy
        ../../modules/deploy
        ../../modules/home-site

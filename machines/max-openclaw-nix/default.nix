@@ -4,7 +4,6 @@
   imports = [
     ./hardware-configuration.nix
     ../../roles/server.nix
-    ../../modules/wireguard
   ];
 
   nixpkgs.overlays = [ inputs.nix-openclaw.overlays.default ];

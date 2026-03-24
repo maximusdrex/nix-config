@@ -2,7 +2,6 @@
 {
   imports = [
     ./base.nix
-    ../modules/ssh
   ];
 
   users.users.max = {
