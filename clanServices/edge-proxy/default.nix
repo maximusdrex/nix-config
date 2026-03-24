@@ -109,6 +109,7 @@ in
           file = "zerotier-ip";
           default = null;
         };
+        upstreamHost = if lib.elem machine.name edgeMachineNames then "127.0.0.1" else zerotierIP;
         normalizedRoutes = lib.mapAttrsToList (routeName: route: {
           inherit routeName;
           machineName = machine.name;
@@ -118,7 +119,7 @@ in
           scheme = route.scheme;
           proxyWebsockets = route.proxyWebsockets;
           locationExtraConfig = route.locationExtraConfig;
-          upstreamIP = zerotierIP;
+          upstreamIP = upstreamHost;
         }) settings.routes;
         exposedPorts = lib.unique (map (route: route.port) normalizedRoutes);
       in

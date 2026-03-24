@@ -5,6 +5,8 @@ Machines with the `server` role export route claims in the form of
 `host + path -> local port`. The machine with the `edge` role consumes those
 claims, provisions ACME certificates with nginx, and proxies each route to the
 claiming machine over ZeroTier using the published `zerotier-ip` Clan var.
+Routes published by the edge machine itself are proxied over `127.0.0.1`
+instead of the mesh address.
 
 Example:
 

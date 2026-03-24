@@ -10,7 +10,6 @@
     [ 
        ./hardware-configuration.nix
        ../../roles/desktop.nix
-       ../../modules/wavemux
     ];
 
   ######################
