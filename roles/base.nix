@@ -57,5 +57,8 @@ in
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nixpkgs.config.allowUnfree = true;
 
+  # Clan operations often need non-interactive sudo over SSH.
+  security.sudo.wheelNeedsPassword = false;
+
   system.configurationRevision = configurationRevision;
 }
