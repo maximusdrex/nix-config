@@ -16,11 +16,6 @@
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
-    home-site = {
-      url = "git+ssh://git@github.com/maximusdrex/home-site.git";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     nix-openclaw = {
       url = "github:openclaw/nix-openclaw";
       inputs.nixpkgs.follows = "nixpkgs";

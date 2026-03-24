@@ -10,7 +10,6 @@ let
 in
 {
   imports = [
-    ../modules/home-site-telemetry
   ];
 
   boot.loader.systemd-boot.enable = true;

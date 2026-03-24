@@ -7,7 +7,7 @@
 
   inventory.machines = {
     max-hetzner-nix = {
-      deploy.targetHost = "max@maxschaefer.me";
+      deploy.targetHost = "root@maxschaefer.me";
       tags = [ "nixos" "server" "edge" "public" ];
     };
 
@@ -37,8 +37,7 @@
     sshd = {
       roles.server.tags.all = { };
       roles.server.settings.authorizedKeys = {
-        # TODO: Replace before first deploy
-        "max-admin" = "PASTE_YOUR_SSH_PUBLIC_KEY";
+        "max-admin" = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/qDFl92Ao8C4LVIbBsZQmlTzXa8+/lglFfIpD7VKp7 max@max-g14-nix";
       };
     };
 

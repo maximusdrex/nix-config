@@ -131,15 +131,6 @@ LABEL="sipeed_rules_end"
     waydroid-helper
   ];
 
-  services.homeSiteTelemetry = {
-    enable = true;
-    baseUrl = "https://maxschaefer.me";
-    deviceStatus = {
-     enable = true;
-     repoPath = "/home/max/nixos";
-    };
-  };
-
   # Desktop-specific security settings
   # unifiedAuth removed in Clan-first refactor; use Clan vars/age plugins instead.
 
