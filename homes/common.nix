@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 {
     home.packages = with pkgs; [
     # TODO: Move these out of here
