@@ -1,0 +1,222 @@
+{ lib, pkgs, config, ... }:
+
+let
+  cfg = config.services.homeSiteTelemetry;
+  inherit (lib) mkIf mkOption mkEnableOption types;
+
+  stateDir = cfg.stateDir;
+  curlPkg = cfg.curlPackage;
+
+  deviceHostname = if cfg.deviceStatus.hostname != null
+    then cfg.deviceStatus.hostname
+    else config.networking.hostName;
+
+  devicePendingFile = if cfg.deviceStatus.pendingFile != null
+    then cfg.deviceStatus.pendingFile
+    else "${stateDir}/device-status.json";
+
+  deviceStateFile = if cfg.deviceStatus.stateFile != null
+    then cfg.deviceStatus.stateFile
+    else "${stateDir}/device-status.sha";
+
+  deviceRepoPath = if cfg.deviceStatus.repoPath != null
+    then cfg.deviceStatus.repoPath
+    else "";
+
+  branchJSON = builtins.toJSON cfg.deviceStatus.branch;
+  modeJSON = builtins.toJSON cfg.deviceStatus.mode;
+  statusJSON = builtins.toJSON cfg.deviceStatus.status;
+  hostnameJSON = builtins.toJSON deviceHostname;
+
+  commitRevision = config.system.configurationRevision or "";
+
+  deviceSender = pkgs.writeShellApplication {
+    name = "home-site-device-status-send";
+    runtimeInputs = [ curlPkg pkgs.coreutils pkgs.gitMinimal ];
+    text = ''
+      set -euo pipefail
+
+      SRC=${lib.escapeShellArg devicePendingFile}
+      STATE=${lib.escapeShellArg deviceStateFile}
+      ENDPOINT=${lib.escapeShellArg (cfg.baseUrl + "/api/deploy/device_status")}
+      COMMIT_FULL=${lib.escapeShellArg commitRevision}
+      REPO_PATH=${lib.escapeShellArg deviceRepoPath}
+
+      if [ -z "''${COMMIT_FULL}" ] || [ "''${COMMIT_FULL}" = "unknown" ]; then
+        if [ -n "''${REPO_PATH}" ] && [ -d "''${REPO_PATH}" ]; then
+          if REV=$(${pkgs.gitMinimal}/bin/git -C "''${REPO_PATH}" rev-parse HEAD 2>/dev/null); then
+            COMMIT_FULL="$REV"
+          fi
+        fi
+      fi
+
+      if [ -z "''${COMMIT_FULL}" ] || [ "''${COMMIT_FULL}" = "unknown" ]; then
+        if COMMIT_FALLBACK=$(/run/current-system/sw/bin/nixos-version --revision 2>/dev/null); then
+          COMMIT_FULL="$COMMIT_FALLBACK"
+        fi
+      fi
+
+      COMMIT_FULL="$(printf '%s' "''${COMMIT_FULL}" | tr -d '\n')"
+      case "''${COMMIT_FULL}" in
+        *-dirty) COMMIT_FULL="''${COMMIT_FULL%-dirty}" ;;
+      esac
+
+      if [ -z "''${COMMIT_FULL}" ] || [ "''${COMMIT_FULL}" = "unknown" ]; then
+        echo "home-site telemetry: configuration revision unavailable; skipping device status" >&2
+        exit 0
+      fi
+
+      echo "home-site telemetry: using commit ''${COMMIT_FULL}" >&2
+
+      pending_dir="$(${pkgs.coreutils}/bin/dirname "$SRC")"
+      state_dir="$(${pkgs.coreutils}/bin/dirname "$STATE")"
+      ${pkgs.coreutils}/bin/mkdir -p "$pending_dir"
+      ${pkgs.coreutils}/bin/mkdir -p "$state_dir"
+
+      tmp="$(${pkgs.coreutils}/bin/mktemp -p "$pending_dir" device-status.json.XXXXXX)"
+      timestamp="$(${pkgs.coreutils}/bin/date -u +"%Y-%m-%dT%H:%M:%SZ")"
+      commit_short="$(${pkgs.coreutils}/bin/printf '%s' "''${COMMIT_FULL}" | ${pkgs.coreutils}/bin/cut -c1-12)"
+      cat >"$tmp" <<EOF
+{
+  "timestamp": "''${timestamp}",
+  "branch": ${branchJSON},
+  "commit": "''${commit_short}",
+  "mode": ${modeJSON},
+  "hostname": ${hostnameJSON},
+  "status": ${statusJSON}
+}
+EOF
+      ${pkgs.coreutils}/bin/chmod 0640 "$tmp"
+      ${pkgs.coreutils}/bin/mv "$tmp" "$SRC"
+
+      digest="$(${pkgs.coreutils}/bin/sha256sum "$SRC" | ${pkgs.coreutils}/bin/cut -d' ' -f1)"
+
+      last=""
+      if [ -f "$STATE" ]; then
+        last="$(${pkgs.coreutils}/bin/cat "$STATE")"
+      fi
+
+      if [ "$digest" = "$last" ]; then
+        exit 0
+      fi
+
+      if ${curlPkg}/bin/curl \
+          --silent --show-error --fail-with-body \
+          --connect-timeout 10 --max-time 60 \
+          -H 'Content-Type: application/json' \
+          -X POST "$ENDPOINT" \
+          --data-binary @"$SRC"; then
+        echo "$digest" > "$STATE"
+      else
+        exit 1
+      fi
+    '';
+  };
+
+in {
+  options.services.homeSiteTelemetry = {
+    enable = mkEnableOption "upload deploy telemetry to home-site";
+
+    baseUrl = mkOption {
+      type = types.str;
+      default = "https://maxschaefer.me";
+      description = "Base URL for the home-site telemetry API.";
+    };
+
+    stateDir = mkOption {
+      type = types.str;
+      default = "/var/lib/home-site-telemetry";
+      description = "Directory for telemetry state and pending payloads.";
+    };
+
+    curlPackage = mkOption {
+      type = types.package;
+      default = pkgs.curl;
+      description = "Curl package used for telemetry uploads.";
+    };
+
+    deviceStatus = {
+      enable = mkEnableOption "report per-device status updates";
+
+      branch = mkOption {
+        type = types.str;
+        default = "main";
+        description = "Git branch associated with this device.";
+      };
+
+      mode = mkOption {
+        type = types.str;
+        default = "switch";
+        description = "Deploy mode reported with the device status.";
+      };
+
+      status = mkOption {
+        type = types.str;
+        default = "success";
+        description = "Status string to send with device status updates.";
+      };
+
+      hostname = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Optional override for the hostname reported to the API.";
+      };
+
+      repoPath = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Path to a git worktree whose HEAD commit should be reported.";
+      };
+
+      pendingFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Path to write the latest device status payload.";
+      };
+
+      stateFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Override path to store the last-sent device status digest.";
+      };
+
+      interval = mkOption {
+        type = types.str;
+        default = "5min";
+        description = "Repeat interval for retrying device status uploads.";
+      };
+    };
+  };
+
+  config = mkIf cfg.enable {
+    systemd.tmpfiles.rules = [
+      "d ${stateDir} 0750 root root - -"
+    ];
+
+    systemd.services.home-site-telemetry-device-status = mkIf cfg.deviceStatus.enable {
+      description = "Upload device status to home-site telemetry";
+      after = [ "network.target" "network-online.target" ];
+      wants = [ "network-online.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${deviceSender}/bin/home-site-device-status-send";
+      };
+    };
+
+    systemd.timers.home-site-telemetry-device-status = mkIf cfg.deviceStatus.enable {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "2min";
+        OnUnitActiveSec = cfg.deviceStatus.interval;
+        AccuracySec = "30s";
+        Persistent = true;
+      };
+    };
+
+    system.activationScripts.homeSiteTelemetryDeviceStatus = mkIf cfg.deviceStatus.enable ''
+      echo "home-site telemetry: triggering device status update" >&2
+      ${pkgs.systemd}/bin/systemctl start --no-block home-site-telemetry-device-status.service || true
+    '';
+
+  };
+}
