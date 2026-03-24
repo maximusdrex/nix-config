@@ -1,4 +1,4 @@
-{ pkgs, self, ... }:
+{ inputs, pkgs, self, ... }:
 let
   sourceInfo = self.sourceInfo or {};
   configurationRevision =
@@ -7,6 +7,7 @@ let
     else if self ? rev then self.rev
     else if self ? dirtyRev then self.dirtyRev
     else "";
+  clanCli = inputs.clan-core.packages.${pkgs.stdenv.hostPlatform.system}.clan-cli;
 in
 {
   imports = [
@@ -45,6 +46,7 @@ in
   };
 
   environment.variables.EDITOR = "vim";
+  environment.systemPackages = [ clanCli ];
 
   virtualisation.containers.enable = true;
   virtualisation.podman = {
