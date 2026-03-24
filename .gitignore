@@ -1,0 +1,7 @@
+result
+result/
+
+# Never commit runtime/generated secrets
+secrets/**
+!secrets/
+!secrets/README.md
