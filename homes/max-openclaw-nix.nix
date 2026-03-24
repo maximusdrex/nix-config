@@ -14,7 +14,6 @@
     exposePluginPackages = false;
     bundledPlugins = {
       summarize.enable = true;
-      oracle.enable = true;
     };
     config = {
       agents.defaults.model.primary = "openai-codex/gpt-5.3-codex";

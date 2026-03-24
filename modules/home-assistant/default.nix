@@ -13,12 +13,18 @@ in
       description = "Open firewall for HA UI (8123), mDNS/SSDP, and Matter (5540).";
     };
 
-    # WireGuard IP (on the VPS) that will run the reverse proxy later.
+    trustedProxyIPs = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "IP addresses of reverse proxies allowed to forward requests to Home Assistant.";
+    };
+
+    # Legacy singular option retained during the WireGuard -> Clan migration.
     trustedProxyWireGuardIP = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
       example = "10.20.0.1";
-      description = "WireGuard IP of the VPS reverse proxy; used in http.trusted_proxies.";
+      description = "Legacy single trusted proxy IP.";
     };
 
     extraComponents = lib.mkOption {
@@ -52,38 +58,40 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    services.home-assistant =
+      let
+        trustedProxyIPs = cfg.trustedProxyIPs ++ lib.optional (cfg.trustedProxyWireGuardIP != null) cfg.trustedProxyWireGuardIP;
+      in
+      {
 
-    ############################
-    # Home Assistant
-    ############################
-    services.home-assistant = {
-      enable = true;
+        ############################
+        # Home Assistant
+        ############################
+        enable = true;
 
-      # Home Assistant YAML (merged into configuration.yaml)
-      config = {
-        default_config = {};
+        # Home Assistant YAML (merged into configuration.yaml)
+        config = {
+          default_config = {};
 
-        http = {
-          server_host = cfg.listenAddress;
-          server_port = cfg.port;
+          http = {
+            server_host = cfg.listenAddress;
+            server_port = cfg.port;
 
-          # Only set proxy bits when a proxy IP is provided
-          use_x_forwarded_for = cfg.trustedProxyWireGuardIP != null;
-          trusted_proxies =
-            lib.mkIf (cfg.trustedProxyWireGuardIP != null)
-              [ cfg.trustedProxyWireGuardIP ];
+            # Only set proxy bits when trusted proxy IPs are configured.
+            use_x_forwarded_for = trustedProxyIPs != [ ];
+            trusted_proxies = lib.mkIf (trustedProxyIPs != [ ]) trustedProxyIPs;
+          };
         };
-      };
 
-      extraComponents = cfg.extraComponents;
-    };
+        extraComponents = cfg.extraComponents;
+      };
 
     ############################
     # Discovery (mDNS/SSDP)
     ############################
     services.avahi = {
       enable = true;
-      nssmdns = true;
+      nssmdns4 = true;
       openFirewall = cfg.openFirewall;
       # Keep discovery chat on LAN, not over WireGuard
       extraConfig = ''
@@ -104,4 +112,3 @@ in
     networking.enableIPv6 = lib.mkDefault true;
   };
 }
-

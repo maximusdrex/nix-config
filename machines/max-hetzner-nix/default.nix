@@ -32,24 +32,6 @@
   # 6. Other
   ######################
 
-  # services.edgeProxy = {
-  #   enable = true;
-  #   acmeEmail = "max@theschaefers.com";        # change to your email
-  #   sites."home.maxschaefer.me" = {
-  #     upstreamHost = "max-richard-nix";   
-  #     upstreamPort = 8123;                # Home Assistant
-  #   };
-  #   sites."budget.maxschaefer.me" = {
-  #     upstreamHost = "max-hetzner-nix";
-  #     upstreamPort = 5006;
-  #   };
-  #   sites."openclaw.maxschaefer.me" = {
-  #     upstreamHost = "max-openclaw-nix";
-  #     upstreamPort = 18789;
-  #   };
-  #   # Add more sites later by extending 'sites'
-  # };
-
   services.actual = {
     enable = true;
     settings = {
@@ -57,8 +39,6 @@
       hostname = "0.0.0.0";
     };
   };
-
-  users.users.nginx.extraGroups = [ "acme" ];
 
   # Server-specific security settings - temporarily disabled
 

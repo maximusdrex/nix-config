@@ -5,9 +5,12 @@
     domain = "maxschaefer.me";
   };
 
+  exportInterfaces.publicProxy = ./clanServices/edge-proxy/export-interface.nix;
+  modules.edge-proxy = ./clanServices/edge-proxy;
+
   inventory.machines = {
     max-hetzner-nix = {
-      deploy.targetHost = "root@maxschaefer.me";
+      deploy.targetHost = "max@maxschaefer.me";
       tags = [ "nixos" "server" "edge" "public" ];
     };
 
@@ -64,6 +67,21 @@
       roles.default.tags.all = { };
       roles.default.settings.packages = [
         "git" "vim" "wget" "curl" "jq" "htop" "fastfetch" "tree"
+
+        # Container Tools
+        "dive" "podman-tui" "podman-compose" "runc" "conmon" "skopeo"
+
+        # Dev
+        "mtr" "iperf3" "dnsutils" "ldns" "aria2" "socat" "nmap" "ipcalc" "fd"
+        "hugo" "glow" "wishlist" "go" "pkg-config" "pcsclite" "devcontainer" "wl-clipboard-rs"
+        "btop" "iotop" "iftop" "strace" "ltrace" "lsof"
+        "sysstat" "lm_sensors" "ethtool" "pciutils" "usbutils" "inetutils" "linuxConsoleTools"
+        "gcc_multi" "cmake" "gnumake" "ninja" "just"
+        "android-tools" 
+
+        # Python
+        "python3" "uv"
+
       ];
     };
 
@@ -77,14 +95,59 @@
       module.name = "packages";
       roles.default.tags.desktop = { };
       roles.default.settings.packages = [
-        "vlc" "discord" "keepassxc" "rclone" "libreoffice-qt6-fresh"
-        "pulseview" "sigrok-cli" "mangohud" "lutris" "bottles" "heroic"
+        "google-chrome" "vlc" "discord" "keepassxc" "rclone" "libreoffice-qt6-fresh"
+        
+        # Gaming
+        "mangohud" "lutris" "bottles" "heroic"
+
+        # Dev
+        "jetbrains-toolbox" "jetbrains.clion" "jetbrains.pycharm"
+        "distrobox" "distrobox-tui"
+        "pulseview" "sigrok-cli"
+
+        # Work
+        "slack" "thunderbird" "gpu-screen-recorder-gtk"
+        "qgroundcontrol" "stm32cubemx" "segger-jlink" "betaflight-configurator"
+
+        # Customization
+        "spicetify-cli"
+
+        # Personal
+        "spotify" "solaar" "gdrive" "cbonsai" "qalculate-qt" "nom" "codex" "claude-code"
       ];
     };
 
     zerotier = {
       roles.controller.machines."max-hetzner-nix" = { };
       roles.peer.tags.all = { };
+    };
+
+    edge-proxy = {
+      module = {
+        input = "self";
+        name = "edge-proxy";
+      };
+
+      roles.edge.machines."max-hetzner-nix".settings = {
+        acmeEmail = "max@theschaefers.com";
+      };
+
+      roles.server.tags.server = { };
+
+      roles.server.machines."max-richard-nix".settings.routes.home = {
+        host = "home";
+        port = 8123;
+      };
+
+      roles.server.machines."max-hetzner-nix".settings.routes.budget = {
+        host = "budget";
+        port = 5006;
+      };
+
+      roles.server.machines."max-openclaw-nix".settings.routes.openclaw = {
+        host = "openclaw";
+        port = 18789;
+      };
     };
   };
 

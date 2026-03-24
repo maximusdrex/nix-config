@@ -1,0 +1,119 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "palette": {
+        "os": "#ACB0BE",
+        "closer": "p:os",
+        "pink": "#F5C2E7",
+        "lavender": "#B4BEFE",
+        "blue":  "#89B4FA",
+	"green": "#00c983",
+	"dark_green": "#003543"
+  },
+  "blocks": [
+    {
+      "alignment": "left",
+      "segments": [
+        {
+          "foreground": "p:green",
+          "leading_diamond": "\ue0b6",
+          "style": "plain",
+          "template": "{{ .Icon }} {{ .HostName }} ",
+          "type": "os"
+        },
+        
+        {
+          "foreground": "p:pink",
+          "properties": {
+            "folder_icon": "\ue5fe",
+            "home_icon": "~",
+            "style": "agnoster_short",
+	    "max_depth": 3,
+	    "mapped_locations": {
+	      "~/Documents": "📑",
+	      "~/Downloads": "📥"
+	    }
+          },
+          "style": "plain",
+          "template": "{{ .Path }} ",
+          "type": "path"
+        },
+        {
+          "foreground": "p:lavender",
+          "properties": {
+            "branch_icon": "\ue725 ",
+            "cherry_pick_icon": "\ue29b ",
+            "commit_icon": "\uf417 ",
+            "fetch_status": false,
+            "fetch_upstream_icon": false,
+            "merge_icon": "\ue727 ",
+            "no_commits_icon": "\uf0c3 ",
+            "rebase_icon": "\ue728 ",
+            "revert_icon": "\uf0e2 ",
+            "tag_icon": "\uf412 "
+          },
+          "template": "{{ .HEAD }} ",
+          "style": "plain",
+          "type": "git"
+        },
+	{
+          "foreground": "p:blue",
+          "properties": {
+            "always_enabled": true
+          },
+          "style": "plain",
+          "template": " \ueba2 {{ .FormattedMs }} ",
+          "type": "executiontime"
+	},
+	{
+          "foreground": "p:green",
+          "foreground_templates": [
+            "{{ if gt .Code 0 }}red{{ end }}"
+          ],
+          "powerline_symbol": "\ue0b0",
+          "properties": {
+            "always_enabled": true
+          },
+          "style": "plain",
+          "template": " {{ if gt .Code 0 }}\uf421{{ else }}\uf469{{ end }} ",
+          "type": "status"
+	}
+      ],
+      "type": "prompt"
+    },
+    {
+      "alignment": "left",
+      "newline": true,
+      "segments": [
+        {
+          "foreground": "#cd5e42",
+          "style": "plain",
+          "template": "\ue3bf ",
+          "type": "root"
+        },
+	{
+          "type": "nix-shell",
+          "style": "plain",
+          "foreground": "p:blue",
+          "background": "transparent",
+          "template": "{{ if matchP \"unknown\" .Type }}{{ else }}nix-shell : {{ end }}"
+        },
+	{
+          "type": "cmake",
+          "style": "plain",
+          "foreground": "p:lavender",
+          "background": "transparent",
+          "template": " "
+        },
+        {
+          "foreground": "#CD4277",
+          "style": "plain",
+          "template": "{{ .UserName }}</b> <#26C6DA>\u276f</><#45F1C2>\u276f</>",
+          "type": "text"
+        }
+      ],
+      "type": "prompt"
+    }
+  ],
+  "final_space": true,
+  "version": 3
+}

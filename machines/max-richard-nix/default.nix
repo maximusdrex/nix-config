@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 ########################
 # Host-specific config
@@ -71,6 +71,11 @@
   services.localHomeAssistant = {
     enable = true;
     openFirewall = false;
+    trustedProxyIPs = [
+      (lib.strings.removeSuffix "\n" (
+        builtins.readFile ../../vars/per-machine/max-hetzner-nix/zerotier/zerotier-ip/value
+      ))
+    ];
     # listenAddress = "0.0.0.0";            # default is fine
     # port = 8123;                           # default is fine
   };

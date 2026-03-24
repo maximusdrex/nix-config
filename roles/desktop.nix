@@ -42,10 +42,10 @@
   hardware.saleae-logic.enable = true;
   programs.nix-ld.enable = true;
   programs.wireshark.enable = true;
+  programs.vscode.enable = true;
 
   services.udev.packages = [ pkgs.openocd pkgs.rtl-sdr ];
   services.udev.extraRules = ''
-    SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0002", NAME="wmx0"
     ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55de", MODE="660", GROUP="plugdev", TAG+="uaccess"
   '';
 

@@ -11,7 +11,6 @@
        ./hardware-configuration.nix
        ../../roles/desktop.nix
        ../../modules/sigrok
-       ../../modules/wavemux
     ];
 
   ######################
@@ -118,13 +117,7 @@ LABEL="sipeed_rules_end"
   # services.xserver.videoDrivers = [ "nvidia" ];
 
   environment.systemPackages = with pkgs; [
-    pulseview
-    sigrok-cli
-    mangohud
     protonup-qt
-    lutris
-    bottles
-    heroic
     umu-launcher
     vkd3d-proton
     dxvk

@@ -12,7 +12,6 @@
     enable = lib.mkForce true;
     allowedTCPPorts = [ 22 ];
     allowedUDPPorts = [ 33333 ];
-    interfaces.wg0.allowedTCPPorts = [ 18789 ];
   };
 
   networking.hostName = "max-openclaw-nix";
