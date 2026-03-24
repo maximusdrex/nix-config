@@ -7,27 +7,27 @@
 
   inventory.machines = {
     max-hetzner-nix = {
-      deploy.targetHost = "root@maxschaefer.me";
+      deploy.targetHost = "max@maxschaefer.me";
       tags = [ "nixos" "server" "edge" "public" ];
     };
 
     max-richard-nix = {
-      deploy.targetHost = "root@max-richard-nix.local";
+      deploy.targetHost = "max@max-richard-nix.local";
       tags = [ "nixos" "server" "home-services" ];
     };
 
     max-openclaw-nix = {
-      deploy.targetHost = "root@max-openclaw-nix.local";
+      deploy.targetHost = "max@max-openclaw-nix.local";
       tags = [ "nixos" "server" "openclaw" ];
     };
 
     max-g14-nix = {
-      deploy.targetHost = "root@max-g14-nix.local";
+      deploy.targetHost = "max@max-g14-nix.local";
       tags = [ "nixos" "desktop" "laptop" ];
     };
 
     max-xps-modal = {
-      deploy.targetHost = "root@max-xps-modal.local";
+      deploy.targetHost = "max@max-xps-modal.local";
       tags = [ "nixos" "desktop" "laptop" ];
     };
   };

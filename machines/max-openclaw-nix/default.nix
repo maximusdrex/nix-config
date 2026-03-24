@@ -3,7 +3,7 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../../roles/server
+    ../../roles/server.nix
     ../../modules/wireguard
   ];
 

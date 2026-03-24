@@ -9,7 +9,7 @@
   imports =
     [ 
        ./hardware-configuration.nix
-       ../../roles/desktop
+       ../../roles/desktop.nix
        ../../modules/sigrok
        ../../modules/wavemux
        ../../modules/wireguard
