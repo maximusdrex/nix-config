@@ -200,6 +200,23 @@ in
         port = 5006;
       };
 
+      roles.server.machines."max-hetzner-nix".settings.routes.monitoring-root = {
+        host = "monitoring";
+        path = "/";
+        port = 80;
+        proxyWebsockets = false;
+        locationExtraConfig = ''
+          return 302 /grafana/;
+        '';
+      };
+
+      roles.server.machines."max-hetzner-nix".settings.routes.monitoring-grafana = {
+        host = "monitoring";
+        path = "/grafana/";
+        port = 3000;
+        proxyWebsockets = true;
+      };
+
       roles.server.machines."max-openclaw-nix".settings.routes.openclaw = {
         host = "openclaw";
         port = 18789;
