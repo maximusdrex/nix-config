@@ -25,12 +25,10 @@
     };
 
     max-g14-nix = {
-      deploy.targetHost = "max@max-g14-nix.local";
       tags = [ "nixos" "desktop" "laptop" ];
     };
 
     max-xps-modal = {
-      deploy.targetHost = "max@max-xps-modal.local";
       tags = [ "nixos" "desktop" "laptop" ];
     };
   };
@@ -167,6 +165,7 @@
 
     max-richard-nix = {
       nixpkgs.hostPlatform = "x86_64-linux";
+      clan.deployment.requireExplicitUpdate = true;
       imports = [
         ./machines/max-richard-nix
         inputs.home-manager.nixosModules.home-manager
@@ -196,6 +195,7 @@
 
     max-g14-nix = {
       nixpkgs.hostPlatform = "x86_64-linux";
+      clan.deployment.requireExplicitUpdate = true;
       imports = [
         ./machines/max-g14-nix
         inputs.home-manager.nixosModules.home-manager
@@ -210,6 +210,7 @@
 
     max-xps-modal = {
       nixpkgs.hostPlatform = "x86_64-linux";
+      clan.deployment.requireExplicitUpdate = true;
       imports = [
         ./machines/max-xps-modal
         inputs.home-manager.nixosModules.home-manager
