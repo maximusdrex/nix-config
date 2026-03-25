@@ -20,13 +20,14 @@ appimageTools.wrapType2 rec {
 
   extraInstallCommands = ''
     mkdir -p $out/share/applications
+    install -D -m444 ${./besticon.png} $out/share/icons/hicolor/256x256/apps/${pname}.png
     cat <<INI > $out/share/applications/${pname}.desktop 
     [Desktop Entry]
     Type=Application
     Name=Active-Pro Firmware Debugger
     Comment=Active-Pro Firmware Debugger
     Exec=$out/bin/${pname} %f
-    Icon=/home/max/Setup/active/besticon.png
+    Icon=${pname}
     Categories=Office;
     X-AppImage-Version=
 

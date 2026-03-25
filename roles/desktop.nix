@@ -1,8 +1,18 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
+let
+  localPackagesOverlay = import ../overlays/default.nix;
+in
 {
   imports = [
     ./base.nix
   ];
+
+  nixpkgs.overlays = lib.mkAfter [ localPackagesOverlay ];
+
+  nixpkgs.config.permittedInsecurePackages = [
+    "segger-jlink-qt4-874"
+  ];
+  nixpkgs.config.segger-jlink.acceptLicense = true;
 
   networking.networkmanager.enable = true;
 
@@ -42,7 +52,6 @@
   hardware.saleae-logic.enable = true;
   programs.nix-ld.enable = true;
   programs.wireshark.enable = true;
-  programs.vscode.enable = true;
 
   services.udev.packages = [ pkgs.openocd pkgs.rtl-sdr ];
   services.udev.extraRules = ''
@@ -59,6 +68,14 @@
 
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
+
+  fonts.packages = [
+    pkgs.berkeley-mono
+  ];
+
+  environment.systemPackages = [
+    pkgs.active-firmware-tools
+  ];
 
   programs.kde-pim.enable = true;
   programs.kde-pim.kontact = true;

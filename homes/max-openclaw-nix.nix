@@ -1,9 +1,4 @@
-{ lib, ... }:
-let
-  zerotierIPv6 = lib.strings.removeSuffix "\n" (
-    builtins.readFile ../vars/per-machine/max-openclaw-nix/zerotier/zerotier-ip/value
-  );
-in
+{ ... }:
 {
   imports = [ ./common.nix ];
 
@@ -37,9 +32,9 @@ in
       };
       gateway = {
         mode = "local";
-        bind = "custom";
-        customBindHost = zerotierIPv6;
+        bind = "loopback";
         controlUi.allowInsecureAuth = true;
+        controlUi.allowedOrigins = [ "https://openclaw.maxschaefer.me" ];
         auth = {
           mode = "token";
           token = builtins.getEnv "OPENCLAW_GATEWAY_TOKEN";
