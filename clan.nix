@@ -20,7 +20,7 @@
     };
 
     max-openclaw-nix = {
-      deploy.targetHost = "max@max-openclaw-nix.local";
+      deploy.targetHost = "max@5.78.177.67";
       tags = [ "nixos" "server" "openclaw" ];
     };
 
