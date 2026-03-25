@@ -1,4 +1,9 @@
 { lib, ... }:
+let
+  zerotierIPv6 = lib.strings.removeSuffix "\n" (
+    builtins.readFile ../vars/per-machine/max-openclaw-nix/zerotier/zerotier-ip/value
+  );
+in
 {
   imports = [ ./common.nix ];
 
@@ -32,7 +37,8 @@
       };
       gateway = {
         mode = "local";
-        bind = "lan";
+        bind = "custom";
+        customBindHost = zerotierIPv6;
         controlUi.allowInsecureAuth = true;
         auth = {
           mode = "token";
