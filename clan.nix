@@ -1,4 +1,16 @@
 { inputs, ... }:
+let
+  stripTrailingNewline = value: builtins.replaceStrings [ "\n" ] [ "" ] value;
+  zerotierIP = machine:
+    stripTrailingNewline (
+      builtins.readFile (./vars/per-machine + "/${machine}/zerotier/zerotier-ip/value")
+    );
+  internalZTDomain = "zt.maxschaefer.me";
+
+  # The official CoreDNS service currently expects an IPv4 endpoint for the
+  # DNS server itself, even if the records it serves are AAAA records.
+  hetznerPublicIPv4 = "5.78.135.36";
+in
 {
   meta = {
     name = "max-clan";
@@ -64,7 +76,7 @@
       module.name = "packages";
       roles.default.tags.all = { };
       roles.default.settings.packages = [
-        "git" "vim" "wget" "curl" "jq" "htop" "fastfetch" "tree"
+        "git" "vim" "wget" "curl" "jq" "htop" "fastfetch" "tree" "ripgrep"
 
         # Container Tools
         "dive" "podman-tui" "podman-compose" "runc" "conmon" "skopeo"
@@ -86,7 +98,7 @@
     packages-server = {
       module.name = "packages";
       roles.default.tags.server = { };
-      roles.default.settings.packages = [ "tmux" "ripgrep" ];
+      roles.default.settings.packages = [ "tmux" ];
     };
 
     packages-desktop = {
@@ -118,6 +130,52 @@
     zerotier = {
       roles.controller.machines."max-hetzner-nix" = { };
       roles.peer.tags.all = { };
+    };
+
+    coredns = {
+      roles.server.machines."max-hetzner-nix".settings = {
+        ip = hetznerPublicIPv4;
+        tld = internalZTDomain;
+      };
+
+      roles.default.tags.all = { };
+
+      roles.default.machines."max-hetzner-nix".settings = {
+        ip = zerotierIP "max-hetzner-nix";
+        services = [ "max-hetzner-nix" "monitoring" ];
+      };
+
+      roles.default.machines."max-richard-nix".settings = {
+        ip = zerotierIP "max-richard-nix";
+        services = [ "max-richard-nix" ];
+      };
+
+      roles.default.machines."max-openclaw-nix".settings = {
+        ip = zerotierIP "max-openclaw-nix";
+        services = [ "max-openclaw-nix" ];
+      };
+
+      roles.default.machines."max-g14-nix".settings = {
+        ip = zerotierIP "max-g14-nix";
+        services = [ "max-g14-nix" ];
+      };
+
+      roles.default.machines."max-xps-modal".settings = {
+        ip = zerotierIP "max-xps-modal";
+        services = [ "max-xps-modal" ];
+      };
+    };
+
+    monitoring = {
+      roles.client.tags.all = { };
+      roles.client.settings = {
+        useSSL = false;
+      };
+
+      roles.server.machines."max-hetzner-nix".settings = {
+        host = "monitoring.${internalZTDomain}";
+        grafana.enable = true;
+      };
     };
 
     edge-proxy = {
@@ -165,7 +223,7 @@
 
     max-richard-nix = {
       nixpkgs.hostPlatform = "x86_64-linux";
-      clan.deployment.requireExplicitUpdate = true;
+      clan.core.deployment.requireExplicitUpdate = true;
       imports = [
         ./machines/max-richard-nix
         inputs.home-manager.nixosModules.home-manager
@@ -195,7 +253,7 @@
 
     max-g14-nix = {
       nixpkgs.hostPlatform = "x86_64-linux";
-      clan.deployment.requireExplicitUpdate = true;
+      clan.core.deployment.requireExplicitUpdate = true;
       imports = [
         ./machines/max-g14-nix
         inputs.home-manager.nixosModules.home-manager
@@ -210,7 +268,7 @@
 
     max-xps-modal = {
       nixpkgs.hostPlatform = "x86_64-linux";
-      clan.deployment.requireExplicitUpdate = true;
+      clan.core.deployment.requireExplicitUpdate = true;
       imports = [
         ./machines/max-xps-modal
         inputs.home-manager.nixosModules.home-manager

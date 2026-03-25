@@ -40,6 +40,11 @@
     };
   };
 
+  services.nginx.virtualHosts."max-hetzner-nix.maxschaefer.me".serverAliases = [
+    "max-hetzner-nix.zt.maxschaefer.me"
+    "monitoring.zt.maxschaefer.me"
+  ];
+
   # Server-specific security settings - temporarily disabled
 
   # Host config
