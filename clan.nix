@@ -18,6 +18,7 @@ in
   };
 
   exportInterfaces.publicProxy = ./clanServices/edge-proxy/export-interface.nix;
+  modules.build-farm = ./clanServices/build-farm;
   modules.edge-proxy = ./clanServices/edge-proxy;
 
   inventory.machines = {
@@ -32,7 +33,7 @@ in
     };
 
     max-openclaw-nix = {
-      deploy.targetHost = "max@5.78.177.67";
+      deploy.targetHost = "max@max-openclaw-nix.zt.maxschaefer.me";
       tags = [ "nixos" "server" "openclaw" ];
     };
 
@@ -49,9 +50,11 @@ in
   inventory.instances = {
     sshd = {
       roles.server.tags.all = { };
+      roles.client.tags.nixos = { };
       roles.server.settings.authorizedKeys = {
         "max-admin" = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/qDFl92Ao8C4LVIbBsZQmlTzXa8+/lglFfIpD7VKp7 max@max-g14-nix";
       };
+      roles.server.settings.certificate.searchDomains = [ internalZTDomain ];
     };
 
     user-root = {
@@ -176,6 +179,27 @@ in
         host = "monitoring.${internalZTDomain}";
         grafana.enable = true;
       };
+    };
+
+    build-farm = {
+      module = {
+        input = "self";
+        name = "build-farm";
+      };
+
+      roles.builder.machines."max-hetzner-nix".settings = {
+        maxJobs = 8;
+        speedFactor = 20;
+        systems = [ "x86_64-linux" ];
+      };
+
+      roles.cache.machines."max-hetzner-nix".settings = {
+        port = 5000;
+        priority = 25;
+      };
+
+      roles.client.tags.nixos = { };
+      roles.client.settings.builderDomain = internalZTDomain;
     };
 
     edge-proxy = {
