@@ -23,8 +23,11 @@
     };
   };
 
-  outputs = inputs@{ self, clan-core, ... }:
+  outputs = inputs@{ self, nixpkgs, clan-core, ... }:
     let
+      systems = [ "x86_64-linux" "aarch64-linux" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
+
       clanConfig = import ./clan.nix { inherit inputs self; };
       clan = clan-core.lib.clan ({
         inherit self;
@@ -33,5 +36,20 @@
     in {
       inherit (clan.config) nixosConfigurations nixosModules clanInternals;
       clan = clan.config;
+
+      devShells = forAllSystems (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in {
+          bootstrap = pkgs.mkShell {
+            packages = with pkgs; [
+              clan-core.packages.${system}.clan-cli
+              git
+              age
+              sops
+            ];
+          };
+          default = self.devShells.${system}.bootstrap;
+        });
     };
 }
