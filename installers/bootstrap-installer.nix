@@ -52,6 +52,13 @@ let
       echo "WARNING: payload did not include bootstrap-secrets/sops-age-key.txt"
     fi
 
+    if [[ -f "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" ]]; then
+      $SUDO install -Dm644 "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" /opt/nix-config/bootstrap/berkeley-mono-1.009.zip
+      echo "Installed Berkeley Mono archive at /opt/nix-config/bootstrap/berkeley-mono-1.009.zip"
+      echo "You can pre-register it in store with:"
+      echo "  nix-store --add-fixed sha256 /opt/nix-config/bootstrap/berkeley-mono-1.009.zip"
+    fi
+
     echo "Bootstrap payload installed. Next:"
     echo "  cd /opt/nix-config"
     echo "  nix develop .#bootstrap"

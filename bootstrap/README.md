@@ -18,6 +18,10 @@ On the live USB, `bootstrap-unlock` decrypts and installs the key to:
 - `/home/nixos/.config/sops/age/keys.txt`
 - `/mnt/var/lib/sops-nix/key.txt` (if `/mnt` exists)
 
+Optional font bootstrap:
+- If `bootstrap/berkeley-mono-1.009.zip` exists when you run `just write flash`, it is embedded and restored to:
+  - `/opt/nix-config/bootstrap/berkeley-mono-1.009.zip`
+
 ## Typical flow
 
 1. Build/write USB:

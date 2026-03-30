@@ -80,9 +80,28 @@ chmod 600 bootstrap/payload.age
 
 echo "Wrote bootstrap/payload.age"
 
-echo "==> Building bootstrap installer ISO"
-nix build .#bootstrap-installer-iso
-ISO_PATH="$(readlink -f result/iso/max-bootstrap-installer.iso)"
+FONT_ARCHIVE="${BOOTSTRAP_BERKELEY_MONO_FILE:-$ROOT_DIR/bootstrap/berkeley-mono-1.009.zip}"
+if [[ -f "$FONT_ARCHIVE" ]]; then
+  echo "==> Including Berkeley Mono archive from: $FONT_ARCHIVE"
+  cp "$FONT_ARCHIVE" "$TMPDIR/payload/bootstrap-secrets/berkeley-mono-1.009.zip"
+else
+  echo "==> Berkeley Mono archive not found (optional): $FONT_ARCHIVE"
+fi
+
+echo "==> Building bootstrap installer ISO (local-only builders)"
+NIX_CONFIG=$'builders =\n' nix build .#bootstrap-installer-iso --no-link -o result
+
+RESULT_PATH="$(readlink -f result)"
+if [[ -f "$RESULT_PATH" && "$RESULT_PATH" == *.iso ]]; then
+  ISO_PATH="$RESULT_PATH"
+else
+  ISO_PATH="$(find "$RESULT_PATH" -type f -name '*.iso' | head -n1 || true)"
+fi
+
+if [[ -z "$ISO_PATH" || ! -f "$ISO_PATH" ]]; then
+  echo "ERROR: Could not locate built ISO under $RESULT_PATH"
+  exit 1
+fi
 
 echo "==> About to erase and write $DEVICE with $ISO_PATH"
 read -r -p "Type YES to continue: " confirm
