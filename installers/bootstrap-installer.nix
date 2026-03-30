@@ -63,6 +63,7 @@ let
 
     echo "Bootstrap payload installed. Next:"
     echo "  bootstrap-disko <target> <disk>"
+    echo "  bootstrap-capture-hardware <target>"
     echo "  bootstrap-install <target>"
   '';
 
@@ -93,13 +94,63 @@ let
     read -r -p "Type YES to continue: " confirm
     [[ "$confirm" == "YES" ]] || { echo "Aborted"; exit 1; }
 
-    # This expects your target host config to define disko.devices.disk.main
+    set +e
     nix --experimental-features 'nix-command flakes' run github:nix-community/disko -- \
       --mode disko \
       /opt/nix-config#"$TARGET" \
       --argstr mainDisk "$DISK"
+    rc=$?
+    set -e
 
-    echo "Disko finished. If mountpoints are not present, mount manually before install."
+    if [[ $rc -ne 0 ]]; then
+      echo "Target-specific disko failed or is not defined; falling back to default desktop layout."
+      nix --experimental-features 'nix-command flakes' run github:nix-community/disko -- \
+        --mode disko \
+        /opt/nix-config/installers/disko-desktop-default.nix \
+        --argstr disk "$DISK"
+    fi
+
+    echo "Disko finished. /mnt should now be mounted."
+  '';
+
+  captureHardwareScript = pkgs.writeShellScriptBin "bootstrap-capture-hardware" ''
+    #!${pkgs.bash}/bin/bash
+    set -euo pipefail
+
+    TARGET="''${1:-}"
+    if [[ -z "$TARGET" ]]; then
+      echo "Usage: bootstrap-capture-hardware <target-machine>"
+      exit 1
+    fi
+
+    if [[ ! -d /opt/nix-config ]]; then
+      echo "ERROR: /opt/nix-config not found. Run bootstrap-unlock first."
+      exit 1
+    fi
+
+    if [[ ! -d /mnt ]]; then
+      echo "ERROR: /mnt not present. Run bootstrap-disko first."
+      exit 1
+    fi
+
+    sudo nixos-generate-config --root /mnt
+
+    SRC="/mnt/etc/nixos/hardware-configuration.nix"
+    DST="/opt/nix-config/machines/$TARGET/hardware-configuration.nix"
+
+    if [[ ! -f "$SRC" ]]; then
+      echo "ERROR: $SRC not found after nixos-generate-config"
+      exit 1
+    fi
+
+    if [[ -f "$DST" ]]; then
+      sudo cp "$DST" "$DST.bak.$(date +%Y%m%d%H%M%S)"
+    fi
+
+    sudo install -Dm644 "$SRC" "$DST"
+    sudo chown nixos:users "$DST" || true
+
+    echo "Updated hardware config: $DST"
   '';
 
   installScript = pkgs.writeShellScriptBin "bootstrap-install" ''
@@ -151,6 +202,7 @@ in {
     wpa_supplicant
     unlockScript
     diskoScript
+    captureHardwareScript
     installScript
   ];
 
@@ -170,13 +222,14 @@ in {
              - nmcli dev wifi connect <SSID> password <PASS>
           2) bootstrap-unlock
           3) bootstrap-disko <target> <disk>
-          4) bootstrap-install <target>
+          4) bootstrap-capture-hardware <target>
+          5) bootstrap-install <target>
 
         Notes:
           - Flakes are enabled in this live environment.
           - Decrypted repo path: /opt/nix-config
           - SOPS key path installed: /var/lib/sops-nix/key.txt
-          - bootstrap-disko expects disko.devices.disk.main in target config
+          - bootstrap-disko uses target disko config when available, else a default EFI+ext4 desktop layout
       '';
     }
   ];
