@@ -12,9 +12,21 @@ write target device:
 # Safer local switch for Clan-managed hosts.
 # Preflight gates: vars check, configured sops key exists, test activation works,
 # user password secret materialized, and vars hash matches /etc/shadow.
-# Usage: just switch <target>
-switch target:
-    @if [[ -z "${SOPS_AGE_KEY_FILE:-}" ]]; then \
+# Usage:
+#   just switch <target>
+#   just switch <target> --test
+switch target *args:
+    @mode="switch"; \
+    for arg in {{args}}; do \
+      if [[ "$arg" == "--test" ]]; then \
+        mode="test"; \
+      else \
+        echo "ERROR: unknown option for switch: $arg"; \
+        echo "Usage: just switch <target> [--test]"; \
+        exit 1; \
+      fi; \
+    done; \
+    if [[ -z "${SOPS_AGE_KEY_FILE:-}" ]]; then \
       if [[ -f "$HOME/.config/sops/age/keys.txt" ]]; then \
         export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"; \
         echo "==> Using default SOPS age key: $SOPS_AGE_KEY_FILE"; \
@@ -39,14 +51,39 @@ switch target:
     expected_hash="$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password-hash)"; \
     actual_hash="$(sudo getent shadow max | cut -d: -f2)"; \
     if [[ "$expected_hash" != "$actual_hash" ]]; then \
-      echo "ERROR: vars hash does not match /etc/shadow after test activation; refusing switch"; \
+      echo "ERROR: vars hash does not match /etc/shadow after test activation; refusing $mode"; \
       echo "expected(vars): ${expected_hash:0:24}..."; \
       echo "actual(shadow): ${actual_hash:0:24}..."; \
       exit 1; \
     fi; \
-    echo "==> Preflight passed; switching system to .#{{target}}"; \
-    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}; \
-    just diagnose-password {{target}}
+    if [[ "$mode" == "switch" ]]; then \
+      echo "==> Preflight passed; switching system to .#{{target}}"; \
+      sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}; \
+      just diagnose-password {{target}}; \
+    else \
+      echo "==> Preflight passed; test activation completed for .#{{target}} (no switch performed)"; \
+    fi
+
+# Regenerate and replace a machine's hardware-configuration.nix from current host hardware.
+# Usage: just update-hardware <target>
+update-hardware target:
+    @dst="machines/{{target}}/hardware-configuration.nix"; \
+    if [[ ! -d "machines/{{target}}" ]]; then \
+      echo "ERROR: target machine directory not found: machines/{{target}}"; \
+      exit 1; \
+    fi; \
+    if [[ -f "$dst" ]]; then \
+      ts="$(date +%Y%m%d%H%M%S)"; \
+      bak="$dst.bak.$ts"; \
+      cp "$dst" "$bak"; \
+      echo "==> Backed up existing hardware config to $bak"; \
+    fi; \
+    tmp="$(mktemp)"; \
+    trap 'rm -f "$tmp"' EXIT; \
+    echo "==> Generating fresh hardware config from current host"; \
+    sudo nixos-generate-config --show-hardware-config > "$tmp"; \
+    install -Dm644 "$tmp" "$dst"; \
+    echo "==> Updated $dst"
 
 # Compare Clan var password/hash with the effective hash in /etc/shadow.
 # Usage: just diagnose-password <target>
