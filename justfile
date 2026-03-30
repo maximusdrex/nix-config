@@ -12,12 +12,13 @@ switch target:
         echo "ERROR: SOPS_AGE_KEY_FILE is not set and default key not found at $HOME/.config/sops/age/keys.txt"; \
         exit 1; \
       fi; \
-    fi
-    @echo "==> Checking Clan vars for {{target}}"
-    CLAN_DIR="$PWD" clan vars check {{target}}
-    @echo "==> Login password that will be set for user 'max' on {{target}}:"
-    @CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password
-    @echo "==> Switching system to .#{{target}}"
-    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR \
-      CLAN_DIR="$PWD" \
-      nixos-rebuild switch --flake .#{{target}}
+    fi; \
+    echo "==> Checking Clan vars for {{target}}"; \
+    CLAN_DIR="$PWD" clan vars check {{target}}; \
+    pw="$$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password)"; \
+    echo "==> Login password that will be assigned to user 'max' on {{target}}:"; \
+    printf '%s\n' "$$pw"; \
+    echo "==> Switching system to .#{{target}}"; \
+    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}; \
+    echo "==> Forcing user 'max' password to the exact value shown above"; \
+    printf 'max:%s\n' "$$pw" | sudo chpasswd
