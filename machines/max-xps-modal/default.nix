@@ -10,6 +10,7 @@
     [ 
        ./hardware-configuration.nix
        ../../roles/desktop.nix
+       ../../modules/sigrok
     ];
 
   ######################
@@ -27,6 +28,7 @@
     ];
   };
 
+  boot.blacklistedKernelModules = [ "dvb_usb_rtl28xxu" ];
 
   ######################
   # 2. Kernel
@@ -36,11 +38,13 @@
   # 3. Networking
   ######################
 
+  networking.firewall = {
+    allowedUDPPorts = [ 33333 1234 ];
+  };
+
   services.avahi = {
     enable = true;
-    nssmdns = true;
-    allowPointToPoint = true;
-    openFirewall = true;
+    nssmdns4 = true;
     publish = {
       enable = true;
       addresses = true;
@@ -61,6 +65,25 @@
   # 6. Other
   ######################
 
+  programs.fuse.enable = true;
+
+  # RTL-SDR
+
+  services.udev.packages = [ pkgs.rtl-sdr ];
+  services.udev.extraRules = ''
+    SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0002", NAME="wmx0"
+    SUBSYSTEMS=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="607[df]", GROUP="plugdev", MODE="0666"
+    SUBSYSTEMS=="usb", ATTRS{idVendor}=="2b04", ATTRS{idProduct}=="[cd]00?", GROUP="plugdev", MODE="0666"
+
+SUBSYSTEM!="usb|usb_device", GOTO="sipeed_rules_end"
+ACTION!="add", GOTO="sipeed_rules_end"
+ATTRS{idVendor}=="359f", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+ENV{ID_MM_DEVICE_IGNORE}="1"
+LABEL="sipeed_rules_end"
+  '';
+  hardware.rtl-sdr.enable = true;
+
+
   # Bluetooth
 
   systemd.user.services.mpris-proxy = {
@@ -76,13 +99,39 @@
 
   # Hardware Adjustments
 
-  hardware.graphics.extraPackages = with pkgs; [ vaapiIntel intel-media-driver ];
-
   services.thermald.enable = true;
 
-  # Desktop-specific security settings - temporarily disabled
+  # Steam (TODO: move to module)
+
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+    localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
+  };
+
+  # Enable OpenGL
+  hardware.graphics.enable = true;
+  hardware.graphics.enable32Bit = true;
+
+  # services.xserver.videoDrivers = [ "nvidia" ];
+
+  environment.systemPackages = with pkgs; [
+    protonup-qt
+    umu-launcher
+    vkd3d-proton
+    dxvk
+    waydroid-helper
+  ];
+
+  # Desktop-specific security settings
+  # unifiedAuth removed in Clan-first refactor; use Clan vars/age plugins instead.
 
   # Host config
+
+  # ATAK
+  virtualisation.waydroid.enable = true;
+  virtualisation.waydroid.package = pkgs.waydroid-nftables;
 
   networking.hostName = "max-xps-modal"; # Define your hostname.
 
