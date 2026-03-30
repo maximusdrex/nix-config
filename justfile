@@ -19,4 +19,24 @@ switch target:
     echo "==> Login password that will be assigned to user 'max' on {{target}}:"; \
     printf '%s\n' "$pw"; \
     echo "==> Switching system to .#{{target}}"; \
-    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}
+    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}; \
+    just diagnose-password {{target}}
+
+# Compare Clan var password/hash with the effective hash in /etc/shadow.
+# Usage: just diagnose-password <target>
+diagnose-password target:
+    @if [[ -z "${SOPS_AGE_KEY_FILE:-}" ]]; then \
+      if [[ -f "$HOME/.config/sops/age/keys.txt" ]]; then \
+        export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"; \
+      else \
+        echo "ERROR: SOPS_AGE_KEY_FILE is not set and default key not found at $HOME/.config/sops/age/keys.txt"; \
+        exit 1; \
+      fi; \
+    fi; \
+    pw="$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password)"; \
+    expected_hash="$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password-hash)"; \
+    actual_hash="$(sudo getent shadow max | cut -d: -f2)"; \
+    echo "==> Password diagnostics for max on {{target}}"; \
+    echo "expected hash (vars): ${expected_hash:0:24}..."; \
+    echo "actual hash (/etc/shadow): ${actual_hash:0:24}..."; \
+    python3 -c 'import sys, crypt; pw, expected, actual = sys.argv[1:4]; expected = expected.strip(); actual = actual.strip(); print(f"vars_hash_matches_shadow: {expected == actual}"); print(f"plaintext_verifies_against_vars_hash: {crypt.crypt(pw, expected) == expected}"); print(f"plaintext_verifies_against_shadow_hash: {crypt.crypt(pw, actual) == actual}")' "$pw" "$expected_hash" "$actual_hash"
