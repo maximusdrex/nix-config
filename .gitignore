@@ -8,4 +8,5 @@ secrets/**
 
 # Generated bootstrap artifacts
 bootstrap/payload.age
-bootstrap/yubikey-identity.txt
+bootstrap/fido2-identity.txt
+bootstrap/fido2-recipient.txt

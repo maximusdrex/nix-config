@@ -2,19 +2,31 @@
 
 This directory is used by `just write flash /dev/sdX`.
 
-- `payload.age` (generated, ignored): encrypted tarball embedded in bootstrap ISO.
-- `yubikey-recipient.txt` (optional, commit-safe): first line `age1...` recipient for your hardware key.
-- `yubikey-identity.txt` (optional, ignored): identity stub used by age plugin on installer media.
+Generated (ignored):
+- `payload.age` — encrypted payload embedded in bootstrap ISO.
+- `fido2-identity.txt` — age-plugin-fido2-hmac identity generated during write.
+- `fido2-recipient.txt` — recipient derived from identity.
+
+## What gets encrypted into payload
+
+- A working copy of this repo at `/opt/nix-config`
+- Your sops age key file (from `$SOPS_AGE_KEY_FILE` or `~/.config/sops/age/keys.txt`) at:
+  - `bootstrap-secrets/sops-age-key.txt`
+
+On the live USB, `bootstrap-unlock` decrypts and installs the key to:
+- `/var/lib/sops-nix/key.txt`
+- `/home/nixos/.config/sops/age/keys.txt`
+- `/mnt/var/lib/sops-nix/key.txt` (if `/mnt` exists)
 
 ## Typical flow
 
-1. Ensure your hardware key age recipient is available (or set `bootstrap/yubikey-recipient.txt`).
-2. Build/write USB:
+1. Build/write USB:
+   - `nix develop .#bootstrap`
    - `just write flash /dev/sdX`
-3. Boot target machine from USB.
-4. In installer environment, run:
+2. Boot target machine from USB.
+3. In installer environment, run:
    - `bootstrap-unlock`
-5. Then:
+4. Then:
    - `cd /opt/nix-config`
    - `nix develop .#bootstrap`
    - `just switch <target>`

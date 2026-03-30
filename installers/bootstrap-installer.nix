@@ -1,14 +1,18 @@
 { lib, pkgs, modulesPath, ... }:
 let
   payloadPath = ../bootstrap/payload.age;
-  identityPath = ../bootstrap/yubikey-identity.txt;
+  identityPath = ../bootstrap/fido2-identity.txt;
   unlockScript = pkgs.writeShellScriptBin "bootstrap-unlock" ''
     #!${pkgs.bash}/bin/bash
     set -euo pipefail
 
     PAYLOAD="/etc/bootstrap/payload.age"
-    OUT_DIR="/opt/nix-config"
-    DEFAULT_IDENTITY="/etc/bootstrap/yubikey-identity.txt"
+    DEFAULT_IDENTITY="/etc/bootstrap/fido2-identity.txt"
+
+    SUDO=""
+    if [[ "$(id -u)" -ne 0 ]]; then
+      SUDO="sudo"
+    fi
 
     if [[ ! -f "$PAYLOAD" ]]; then
       echo "ERROR: $PAYLOAD not found on installer media"
@@ -17,19 +21,40 @@ let
 
     IDENTITY_FILE="''${IDENTITY_FILE:-$DEFAULT_IDENTITY}"
     if [[ ! -f "$IDENTITY_FILE" ]]; then
-      echo "No identity file found at $IDENTITY_FILE"
-      echo "If using yubikey plugin identities, place one there or pass IDENTITY_FILE=/path/to/identity.txt"
-      echo "You can also decrypt manually with age and extract to $OUT_DIR"
+      echo "ERROR: FIDO2 identity file not found at $IDENTITY_FILE"
+      echo "Expected this to be embedded by 'just write flash'."
       exit 1
     fi
 
-    mkdir -p "$OUT_DIR"
-    ${pkgs.age}/bin/age -d -i "$IDENTITY_FILE" "$PAYLOAD" | ${pkgs.gnutar}/bin/tar -xzf - -C "$OUT_DIR"
+    TMPDIR="$(mktemp -d /tmp/bootstrap-unlock.XXXXXX)"
+    trap 'rm -rf "$TMPDIR"' EXIT
 
-    echo "Decrypted bootstrap payload into $OUT_DIR"
-    echo "Next:"
-    echo "  cd $OUT_DIR"
-    echo "  export SOPS_AGE_KEY_FILE=\$HOME/.config/sops/age/keys.txt"
+    echo "Decrypting payload with FIDO2 key (touch/PIN may be required)..."
+    ${pkgs.age}/bin/age -d -i "$IDENTITY_FILE" "$PAYLOAD" | ${pkgs.gnutar}/bin/tar -xzf - -C "$TMPDIR"
+
+    $SUDO mkdir -p /opt
+    $SUDO rm -rf /opt/nix-config
+    $SUDO cp -a "$TMPDIR/opt/nix-config" /opt/
+
+    if [[ -f "$TMPDIR/bootstrap-secrets/sops-age-key.txt" ]]; then
+      $SUDO install -Dm600 "$TMPDIR/bootstrap-secrets/sops-age-key.txt" /var/lib/sops-nix/key.txt
+      $SUDO install -Dm600 "$TMPDIR/bootstrap-secrets/sops-age-key.txt" /home/nixos/.config/sops/age/keys.txt
+      $SUDO chown -R nixos:users /home/nixos/.config/sops || true
+
+      if [[ -d /mnt ]]; then
+        $SUDO install -Dm600 "$TMPDIR/bootstrap-secrets/sops-age-key.txt" /mnt/var/lib/sops-nix/key.txt || true
+      fi
+
+      echo "Installed sops age key to /var/lib/sops-nix/key.txt"
+      echo "Installed sops age key to /home/nixos/.config/sops/age/keys.txt"
+      echo "(and /mnt/var/lib/sops-nix/key.txt if /mnt is present)"
+    else
+      echo "WARNING: payload did not include bootstrap-secrets/sops-age-key.txt"
+    fi
+
+    echo "Bootstrap payload installed. Next:"
+    echo "  cd /opt/nix-config"
+    echo "  nix develop .#bootstrap"
     echo "  just switch <target>"
   '';
 in {

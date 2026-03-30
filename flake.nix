@@ -65,8 +65,8 @@
               age
               sops
               just
-              ykman
-              age-plugin-yubikey
+              age-plugin-fido2-hmac
+              fido2-manage
             ];
           };
           default = self.devShells.${system}.bootstrap;

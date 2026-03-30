@@ -1,0 +1,2 @@
+`just write flash` auto-generates FIDO2 identity/recipient using age-plugin-fido2-hmac.
+No manual recipient file is required.

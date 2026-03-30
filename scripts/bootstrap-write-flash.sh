@@ -17,45 +17,67 @@ if [[ "${EUID}" -eq 0 ]]; then
   exit 1
 fi
 
-for cmd in nix age tar git; do
+for cmd in nix age tar rsync; do
   command -v "$cmd" >/dev/null || { echo "Missing command: $cmd"; exit 1; }
 done
+
+if ! command -v age-plugin-fido2-hmac >/dev/null 2>&1; then
+  echo "ERROR: age-plugin-fido2-hmac is required. Run inside nix develop .#bootstrap"
+  exit 1
+fi
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 mkdir -p bootstrap
 
-echo "==> Insert your hardware key now."
-read -r -p "Press Enter when ready... " _
-
-recipient=""
-if command -v age-plugin-yubikey >/dev/null 2>&1; then
-  recipient="$(age-plugin-yubikey --list 2>/dev/null | awk '/^age1yubikey/{print $1; exit}')" || true
-fi
-
-if [[ -z "$recipient" && -f bootstrap/yubikey-recipient.txt ]]; then
-  recipient="$(head -n1 bootstrap/yubikey-recipient.txt | tr -d '[:space:]')"
-fi
-
-if [[ -z "$recipient" ]]; then
-  read -r -p "Enter Age recipient for your hardware key (age1...): " recipient
-fi
-
-if [[ -z "$recipient" ]]; then
-  echo "ERROR: No recipient provided"
+SOPS_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
+if [[ ! -s "$SOPS_KEY_FILE" ]]; then
+  echo "ERROR: SOPS age key file not found or empty: $SOPS_KEY_FILE"
   exit 1
 fi
 
+echo "==> Insert your FIDO2/U2F security key now."
+read -r -p "Press Enter when ready to generate identity... " _
+
+IDENTITY_FILE="bootstrap/fido2-identity.txt"
+RECIPIENT_FILE="bootstrap/fido2-recipient.txt"
+
+echo "==> Generating fresh FIDO2 age identity"
+age-plugin-fido2-hmac -g > "$IDENTITY_FILE"
+chmod 600 "$IDENTITY_FILE"
+
+recipient="$(grep -Eo 'age1[0-9a-z]+' "$IDENTITY_FILE" | head -n1 || true)"
+if [[ -z "$recipient" ]]; then
+  echo "ERROR: Could not extract recipient from $IDENTITY_FILE"
+  exit 1
+fi
+printf '%s\n' "$recipient" > "$RECIPIENT_FILE"
+chmod 600 "$RECIPIENT_FILE"
+
 echo "==> Building encrypted bootstrap payload"
-TMP_TAR="$(mktemp /tmp/bootstrap-payload.XXXXXX.tar.gz)"
-trap 'rm -f "$TMP_TAR"' EXIT
+TMPDIR="$(mktemp -d /tmp/bootstrap-payload.XXXXXX)"
+trap 'rm -rf "$TMPDIR"' EXIT
 
-tar -C "$ROOT_DIR" -czf "$TMP_TAR" \
-  flake.nix flake.lock clan.nix justfile \
-  machines homes roles modules overlays packages clanServices vars sops scripts
+mkdir -p "$TMPDIR/payload/opt/nix-config" "$TMPDIR/payload/bootstrap-secrets"
 
-age -r "$recipient" -o bootstrap/payload.age "$TMP_TAR"
+rsync -a --delete \
+  --exclude '.git' \
+  --exclude 'result' \
+  --exclude 'bootstrap/payload.age' \
+  --exclude 'bootstrap/fido2-identity.txt' \
+  --exclude 'bootstrap/fido2-recipient.txt' \
+  "$ROOT_DIR/" "$TMPDIR/payload/opt/nix-config/"
+
+cp "$SOPS_KEY_FILE" "$TMPDIR/payload/bootstrap-secrets/sops-age-key.txt"
+chmod 600 "$TMPDIR/payload/bootstrap-secrets/sops-age-key.txt"
+
+TAR_PATH="$TMPDIR/payload.tar.gz"
+tar -C "$TMPDIR/payload" -czf "$TAR_PATH" .
+
+age -R "$RECIPIENT_FILE" -o bootstrap/payload.age "$TAR_PATH"
+chmod 600 bootstrap/payload.age
+
 echo "Wrote bootstrap/payload.age"
 
 echo "==> Building bootstrap installer ISO"
