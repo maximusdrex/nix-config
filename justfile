@@ -39,4 +39,9 @@ diagnose-password target:
     echo "==> Password diagnostics for max on {{target}}"; \
     echo "expected hash (vars): ${expected_hash:0:24}..."; \
     echo "actual hash (/etc/shadow): ${actual_hash:0:24}..."; \
-    python3 -c 'import sys, crypt; pw, expected, actual = sys.argv[1:4]; expected = expected.strip(); actual = actual.strip(); print(f"vars_hash_matches_shadow: {expected == actual}"); print(f"plaintext_verifies_against_vars_hash: {crypt.crypt(pw, expected) == expected}"); print(f"plaintext_verifies_against_shadow_hash: {crypt.crypt(pw, actual) == actual}")' "$pw" "$expected_hash" "$actual_hash"
+    if [[ "$expected_hash" == "$actual_hash" ]]; then \
+      echo "vars_hash_matches_shadow: true"; \
+    else \
+      echo "vars_hash_matches_shadow: false"; \
+      echo "NOTE: mismatch confirms the closure/system did not apply the same password hash as current vars."; \
+    fi
