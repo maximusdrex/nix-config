@@ -61,8 +61,44 @@ let
     fi
 
     echo "Bootstrap payload installed. Next:"
-    echo "  partition + mount target at /mnt (manual or disko)"
+    echo "  bootstrap-disko <target> <disk>"
     echo "  bootstrap-install <target>"
+  '';
+
+  diskoScript = pkgs.writeShellScriptBin "bootstrap-disko" ''
+    #!${pkgs.bash}/bin/bash
+    set -euo pipefail
+
+    TARGET="''${1:-}"
+    DISK="''${2:-}"
+
+    if [[ -z "$TARGET" || -z "$DISK" ]]; then
+      echo "Usage: bootstrap-disko <target-machine> <disk-device>"
+      echo "Example: bootstrap-disko max-g14-nix /dev/nvme0n1"
+      exit 1
+    fi
+
+    if [[ ! -d /opt/nix-config ]]; then
+      echo "ERROR: /opt/nix-config not found. Run bootstrap-unlock first."
+      exit 1
+    fi
+
+    if [[ ! -b "$DISK" ]]; then
+      echo "ERROR: $DISK is not a block device"
+      exit 1
+    fi
+
+    echo "About to WIPE and partition $DISK for target $TARGET"
+    read -r -p "Type YES to continue: " confirm
+    [[ "$confirm" == "YES" ]] || { echo "Aborted"; exit 1; }
+
+    # This expects your target host config to define disko.devices.disk.main
+    nix --experimental-features 'nix-command flakes' run github:nix-community/disko -- \
+      --mode disko \
+      /opt/nix-config#"$TARGET" \
+      --argstr mainDisk "$DISK"
+
+    echo "Disko finished. If mountpoints are not present, mount manually before install."
   '';
 
   installScript = pkgs.writeShellScriptBin "bootstrap-install" ''
@@ -82,7 +118,7 @@ let
 
     if [[ ! -d /mnt/etc ]]; then
       echo "ERROR: /mnt does not look like an installed target root."
-      echo "Partition/mount target disk first (manual or disko), then retry."
+      echo "Run bootstrap-disko or partition/mount manually, then retry."
       exit 1
     fi
 
@@ -96,6 +132,7 @@ in {
 
   networking.hostName = "bootstrap-installer";
   services.openssh.enable = true;
+  networking.networkmanager.enable = true;
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   environment.systemPackages = with pkgs; [
@@ -106,7 +143,13 @@ in {
     age-plugin-fido2-hmac
     fido2-manage
     disko
+    networkmanager
+    iwd
+    iw
+    wirelesstools
+    wpa_supplicant
     unlockScript
+    diskoScript
     installScript
   ];
 
@@ -120,14 +163,19 @@ in {
     {
       "bootstrap-quickstart.txt".text = ''
         Bootstrap USB quickstart:
-          1) bootstrap-unlock
-          2) partition + mount target at /mnt (manual or disko)
-          3) bootstrap-install <target>
+          1) Connect network:
+             - nmtui   (easy TUI)
+             - nmcli dev wifi list
+             - nmcli dev wifi connect <SSID> password <PASS>
+          2) bootstrap-unlock
+          3) bootstrap-disko <target> <disk>
+          4) bootstrap-install <target>
 
         Notes:
           - Flakes are enabled in this live environment.
           - Decrypted repo path: /opt/nix-config
           - SOPS key path installed: /var/lib/sops-nix/key.txt
+          - bootstrap-disko expects disko.devices.disk.main in target config
       '';
     }
   ];
