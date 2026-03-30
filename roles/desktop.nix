@@ -69,8 +69,8 @@ in
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
 
-  fonts.packages = [
-    pkgs.berkeley-mono
+  fonts.packages = lib.optionals berkeleyMonoTry.success [
+    berkeleyMonoTry.value
   ];
 
   environment.systemPackages = [
@@ -80,4 +80,6 @@ in
   programs.kde-pim.enable = true;
   programs.kde-pim.kontact = true;
   programs.kde-pim.kmail = true;
+}
+kmail = true;
 }

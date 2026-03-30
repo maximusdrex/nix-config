@@ -179,7 +179,16 @@ let
 
     if [[ -f /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip ]]; then
       echo "Registering Berkeley Mono archive in Nix store..."
-      nix-store --add-fixed sha256 /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip >/dev/null
+      bm_file="/opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip"
+      expected_hash="1wz76zjayd0acyialrcd8dbbb3sa2qdm9ib92nzsw9hi9pjys5hg"
+      actual_hash="$(nix hash file --type sha256 --base32 "$bm_file")"
+      echo "Berkeley Mono hash expected: $expected_hash"
+      echo "Berkeley Mono hash actual  : $actual_hash"
+      if [[ "$actual_hash" == "$expected_hash" ]]; then
+        nix-store --add-fixed sha256 "$bm_file" >/dev/null
+      else
+        echo "WARNING: Berkeley Mono archive hash mismatch; continuing without Berkeley Mono font package"
+      fi
     fi
 
     echo "Installing target '$TARGET' from /opt/nix-config ..."
