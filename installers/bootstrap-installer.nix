@@ -2,6 +2,7 @@
 let
   payloadPath = ../bootstrap/payload.age;
   identityPath = ../bootstrap/fido2-identity.txt;
+
   unlockScript = pkgs.writeShellScriptBin "bootstrap-unlock" ''
     #!${pkgs.bash}/bin/bash
     set -euo pipefail
@@ -60,17 +61,42 @@ let
     fi
 
     echo "Bootstrap payload installed. Next:"
-    echo "  cd /opt/nix-config"
-    echo "  nix develop .#bootstrap"
-    echo "  just switch <target>"
+    echo "  partition + mount target at /mnt (manual or disko)"
+    echo "  bootstrap-install <target>"
+  '';
+
+  installScript = pkgs.writeShellScriptBin "bootstrap-install" ''
+    #!${pkgs.bash}/bin/bash
+    set -euo pipefail
+
+    TARGET="''${1:-}"
+    if [[ -z "$TARGET" ]]; then
+      echo "Usage: bootstrap-install <target-machine>"
+      exit 1
+    fi
+
+    if [[ ! -d /opt/nix-config ]]; then
+      echo "ERROR: /opt/nix-config not found. Run bootstrap-unlock first."
+      exit 1
+    fi
+
+    if [[ ! -d /mnt/etc ]]; then
+      echo "ERROR: /mnt does not look like an installed target root."
+      echo "Partition/mount target disk first (manual or disko), then retry."
+      exit 1
+    fi
+
+    echo "Installing target '$TARGET' from /opt/nix-config ..."
+    nixos-install --flake /opt/nix-config#"$TARGET" --root /mnt
   '';
 in {
   imports = [
-    (modulesPath + "/installer/cd-dvd/installation-cd-graphical-calamares-plasma6.nix")
+    (modulesPath + "/installer/cd-dvd/installation-cd-minimal.nix")
   ];
 
   networking.hostName = "bootstrap-installer";
   services.openssh.enable = true;
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   environment.systemPackages = with pkgs; [
     git
@@ -81,6 +107,7 @@ in {
     fido2-manage
     disko
     unlockScript
+    installScript
   ];
 
   environment.etc = lib.mkMerge [
@@ -90,6 +117,19 @@ in {
     (lib.optionalAttrs (builtins.pathExists identityPath) {
       "bootstrap/fido2-identity.txt".source = identityPath;
     })
+    {
+      "bootstrap-quickstart.txt".text = ''
+        Bootstrap USB quickstart:
+          1) bootstrap-unlock
+          2) partition + mount target at /mnt (manual or disko)
+          3) bootstrap-install <target>
+
+        Notes:
+          - Flakes are enabled in this live environment.
+          - Decrypted repo path: /opt/nix-config
+          - SOPS key path installed: /var/lib/sops-nix/key.txt
+      '';
+    }
   ];
 
   image.fileName = "max-bootstrap-installer.iso";
