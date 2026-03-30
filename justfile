@@ -58,7 +58,7 @@ diagnose-closure-password target:
       fi; \
     fi; \
     echo "==> users.mutableUsers (expected false for declarative password control)"; \
-    nix eval --raw .#nixosConfigurations.{{target}}.config.users.mutableUsers; \
+    nix eval --json .#nixosConfigurations.{{target}}.config.users.mutableUsers; \
     echo; \
     expected_user_hash="$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password-hash)"; \
     expected_root_hash="$(sudo --preserve-env=CLAN_DIR,SOPS_AGE_KEY_FILE CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password-hash)"; \
