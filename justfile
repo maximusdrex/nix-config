@@ -5,9 +5,13 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # Usage: just switch <target>
 switch target:
     @if [[ -z "${SOPS_AGE_KEY_FILE:-}" ]]; then \
-      echo "ERROR: SOPS_AGE_KEY_FILE is not set."; \
-      echo "Set it first, e.g.: export SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/keys.txt"; \
-      exit 1; \
+      if [[ -f "$HOME/.config/sops/age/keys.txt" ]]; then \
+        export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"; \
+        echo "==> Using default SOPS age key: $SOPS_AGE_KEY_FILE"; \
+      else \
+        echo "ERROR: SOPS_AGE_KEY_FILE is not set and default key not found at $HOME/.config/sops/age/keys.txt"; \
+        exit 1; \
+      fi; \
     fi
     @echo "==> Checking Clan vars for {{target}}"
     CLAN_DIR="$PWD" clan vars check {{target}}
