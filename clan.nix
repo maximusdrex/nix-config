@@ -114,7 +114,6 @@ in
         "mangohud" "lutris" "bottles" "heroic"
 
         # Dev
-        "jetbrains-toolbox" "jetbrains.clion" "jetbrains.pycharm"
         "distrobox" "distrobox-tui"
         "pulseview" "sigrok-cli"
 
