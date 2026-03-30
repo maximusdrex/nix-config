@@ -19,6 +19,4 @@ switch target:
     echo "==> Login password that will be assigned to user 'max' on {{target}}:"; \
     printf '%s\n' "$pw"; \
     echo "==> Switching system to .#{{target}}"; \
-    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}; \
-    echo "==> Forcing user 'max' password to the exact value shown above"; \
-    printf 'max:%s\n' "$pw" | sudo chpasswd
+    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}
