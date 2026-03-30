@@ -70,8 +70,8 @@ in {
     just
     age
     sops
-    ykman
-    age-plugin-yubikey
+    age-plugin-fido2-hmac
+    fido2-manage
     disko
     unlockScript
   ];
@@ -81,11 +81,10 @@ in {
       "bootstrap/payload.age".source = payloadPath;
     })
     (lib.optionalAttrs (builtins.pathExists identityPath) {
-      "bootstrap/yubikey-identity.txt".source = identityPath;
+      "bootstrap/fido2-identity.txt".source = identityPath;
     })
   ];
 
-  users.users.nixos.initialPassword = "nixos";
-  isoImage.isoName = "max-bootstrap-installer.iso";
+  image.fileName = "max-bootstrap-installer.iso";
   system.stateVersion = "24.11";
 }
