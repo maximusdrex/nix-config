@@ -56,9 +56,12 @@ let
 
     if [[ -f "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" ]]; then
       $SUDO install -Dm644 "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" /opt/nix-config/bootstrap/berkeley-mono-1.009.zip
-      echo "Installed Berkeley Mono archive at /opt/nix-config/bootstrap/berkeley-mono-1.009.zip"
-      echo "You can pre-register it in store with:"
-      echo "  nix-store --add-fixed sha256 /opt/nix-config/bootstrap/berkeley-mono-1.009.zip"
+      $SUDO install -Dm644 "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip
+      echo "Installed Berkeley Mono archive at:"
+      echo "  /opt/nix-config/bootstrap/berkeley-mono-1.009.zip"
+      echo "  /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip"
+      echo "If needed, pre-register in store with:"
+      echo "  nix-store --add-fixed sha256 /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip"
     fi
 
     echo "Bootstrap payload installed. Next:"
@@ -172,6 +175,11 @@ let
       echo "ERROR: /mnt does not look like an installed target root."
       echo "Run bootstrap-disko or partition/mount manually, then retry."
       exit 1
+    fi
+
+    if [[ -f /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip ]]; then
+      echo "Registering Berkeley Mono archive in Nix store..."
+      nix-store --add-fixed sha256 /opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip >/dev/null
     fi
 
     echo "Installing target '$TARGET' from /opt/nix-config ..."
