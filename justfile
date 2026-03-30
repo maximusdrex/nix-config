@@ -1,7 +1,8 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# Safely switch a local machine config using Clan-managed vars.
-# Run this from inside `nix develop .#bootstrap`.
+# Safer local switch for Clan-managed hosts.
+# Preflight gates: vars check, configured sops key exists, test activation works,
+# user password secret materialized, and vars hash matches /etc/shadow.
 # Usage: just switch <target>
 switch target:
     @if [[ -z "${SOPS_AGE_KEY_FILE:-}" ]]; then \
@@ -16,9 +17,25 @@ switch target:
     echo "==> Checking Clan vars for {{target}}"; \
     CLAN_DIR="$PWD" clan vars check {{target}}; \
     pw="$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password)"; \
-    echo "==> Login password that will be assigned to user 'max' on {{target}}:"; \
+    echo "==> Login password that should be assigned to user 'max' on {{target}}:"; \
     printf '%s\n' "$pw"; \
-    echo "==> Switching system to .#{{target}}"; \
+    key_path="$(nix eval --raw .#nixosConfigurations.{{target}}.config.sops.age.keyFile)"; \
+    echo "==> Checking configured sops key file exists: $key_path"; \
+    sudo test -s "$key_path" || { echo "ERROR: Missing or empty sops key file at $key_path"; exit 1; }; \
+    echo "==> Running activation preflight (nixos-rebuild test)"; \
+    sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild test --flake .#{{target}}; \
+    secret_path="/run/secrets-for-users/vars/user-password-max/user-password-hash"; \
+    echo "==> Verifying user password secret exists: $secret_path"; \
+    sudo test -s "$secret_path" || { echo "ERROR: User password secret missing after test activation"; exit 1; }; \
+    expected_hash="$(CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password-hash)"; \
+    actual_hash="$(sudo getent shadow max | cut -d: -f2)"; \
+    if [[ "$expected_hash" != "$actual_hash" ]]; then \
+      echo "ERROR: vars hash does not match /etc/shadow after test activation; refusing switch"; \
+      echo "expected(vars): ${expected_hash:0:24}..."; \
+      echo "actual(shadow): ${actual_hash:0:24}..."; \
+      exit 1; \
+    fi; \
+    echo "==> Preflight passed; switching system to .#{{target}}"; \
     sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR CLAN_DIR="$PWD" nixos-rebuild switch --flake .#{{target}}; \
     just diagnose-password {{target}}
 
