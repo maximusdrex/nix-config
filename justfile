@@ -71,10 +71,29 @@ diagnose-closure-password target:
     fi; \
     echo "==> Building closure only (no switch)"; \
     sudo --preserve-env=CLAN_DIR,SOPS_AGE_KEY_FILE CLAN_DIR="$PWD" nixos-rebuild build --flake .#{{target}}; \
-    built_hash="$(grep '^max:' ./result/etc/shadow | cut -d: -f2)"; \
-    echo "==> built closure /etc/shadow hash: ${built_hash:0:24}..."; \
-    if [[ "$built_hash" == "$expected_user_hash" ]]; then \
-      echo "built_hash_matches_vars_hash: true"; \
-    else \
-      echo "built_hash_matches_vars_hash: false"; \
+    configured_hash_json="$(nix eval --json .#nixosConfigurations.{{target}}.config.users.users.max.hashedPassword)"; \
+    configured_hash_file_json="$(nix eval --json .#nixosConfigurations.{{target}}.config.users.users.max.hashedPasswordFile)"; \
+    echo "==> config.users.users.max.hashedPassword: $configured_hash_json"; \
+    echo "==> config.users.users.max.hashedPasswordFile: $configured_hash_file_json"; \
+    if [[ "$configured_hash_json" != "null" ]]; then \
+      configured_hash="$(nix eval --raw .#nixosConfigurations.{{target}}.config.users.users.max.hashedPassword)"; \
+      if [[ "$configured_hash" == "$expected_user_hash" ]]; then \
+        echo "configured_hash_matches_vars_hash: true"; \
+      else \
+        echo "configured_hash_matches_vars_hash: false"; \
+      fi; \
+    fi; \
+    if [[ "$configured_hash_file_json" != "null" ]]; then \
+      configured_hash_file="$(nix eval --raw .#nixosConfigurations.{{target}}.config.users.users.max.hashedPasswordFile)"; \
+      if sudo test -f "$configured_hash_file"; then \
+        runtime_hash_file_value="$(sudo cat "$configured_hash_file")"; \
+        echo "==> runtime hash file value: ${runtime_hash_file_value:0:24}..."; \
+        if [[ "$runtime_hash_file_value" == "$expected_user_hash" ]]; then \
+          echo "runtime_hash_file_matches_vars_hash: true"; \
+        else \
+          echo "runtime_hash_file_matches_vars_hash: false"; \
+        fi; \
+      else \
+        echo "NOTE: configured hash file path does not exist on current system: $configured_hash_file"; \
+      fi; \
     fi
