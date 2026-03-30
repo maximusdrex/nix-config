@@ -1,6 +1,12 @@
 { lib, pkgs, ... }:
 let
   localPackagesOverlay = import ../overlays/default.nix;
+  berkeleyMonoArchive = ../packages/berkeley-mono/berkeley-mono-1.009.zip;
+  berkeleyMonoPkg =
+    if builtins.pathExists berkeleyMonoArchive then
+      pkgs.callPackage ../packages/berkeley-mono/default.nix { src = berkeleyMonoArchive; }
+    else
+      null;
 in
 {
   imports = [
@@ -69,8 +75,8 @@ in
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
 
-  fonts.packages = lib.optionals berkeleyMonoTry.success [
-    berkeleyMonoTry.value
+  fonts.packages = lib.optionals (berkeleyMonoPkg != null) [
+    berkeleyMonoPkg
   ];
 
   environment.systemPackages = [
@@ -80,6 +86,4 @@ in
   programs.kde-pim.enable = true;
   programs.kde-pim.kontact = true;
   programs.kde-pim.kmail = true;
-}
-kmail = true;
 }

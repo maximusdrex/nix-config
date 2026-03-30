@@ -3,6 +3,7 @@
 , stdenvNoCC
 , unzip
 , variant ? "ligaturesoff-0variant1-7variant0"
+, src ? null
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
@@ -49,6 +50,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     install -D -m444 -t $out/share/fonts/truetype */*/*.ttf
 
     runHook postInstall
+  '';
+
+})
+stall
   '';
 
 })
