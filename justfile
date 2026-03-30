@@ -1,5 +1,14 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Build and write a bootstrap installer USB with encrypted payload.
+# Usage: just write flash /dev/sdX
+write target device:
+    @if [[ "{{target}}" != "flash" ]]; then \
+      echo "Usage: just write flash /dev/sdX"; \
+      exit 1; \
+    fi
+    @./scripts/bootstrap-write-flash.sh {{device}}
+
 # Safer local switch for Clan-managed hosts.
 # Preflight gates: vars check, configured sops key exists, test activation works,
 # user password secret materialized, and vars hash matches /etc/shadow.

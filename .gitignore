@@ -5,3 +5,7 @@ result/
 secrets/**
 !secrets/
 !secrets/README.md
+
+# Generated bootstrap artifacts
+bootstrap/payload.age
+bootstrap/yubikey-identity.txt

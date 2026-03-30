@@ -34,8 +34,25 @@
         specialArgs = { inherit inputs self; };
       } // clanConfig);
     in {
-      inherit (clan.config) nixosConfigurations nixosModules clanInternals;
+      nixosConfigurations = clan.config.nixosConfigurations // {
+        bootstrap-installer = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { inherit inputs self; };
+          modules = [ ./installers/bootstrap-installer.nix ];
+        };
+      };
+      inherit (clan.config) nixosModules clanInternals;
       clan = clan.config;
+
+      packages = forAllSystems (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+          if system == "x86_64-linux" then {
+            bootstrap-installer-iso = self.nixosConfigurations.bootstrap-installer.config.system.build.isoImage;
+          } else {
+            default = pkgs.emptyFile;
+          });
 
       devShells = forAllSystems (system:
         let
@@ -47,6 +64,9 @@
               git
               age
               sops
+              just
+              ykman
+              age-plugin-yubikey
             ];
           };
           default = self.devShells.${system}.bootstrap;
