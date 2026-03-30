@@ -17,6 +17,7 @@ let
 
     if [[ ! -f "$PAYLOAD" ]]; then
       echo "ERROR: $PAYLOAD not found on installer media"
+      echo "If this USB was built before payload embedding fix, rebuild with: just write flash /dev/sdX"
       exit 1
     fi
 

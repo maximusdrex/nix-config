@@ -88,8 +88,8 @@ else
   echo "==> Berkeley Mono archive not found (optional): $FONT_ARCHIVE"
 fi
 
-echo "==> Building bootstrap installer ISO (local-only builders)"
-NIX_CONFIG=$'builders =\n' nix build .#bootstrap-installer-iso --no-link -o result
+echo "==> Building bootstrap installer ISO (local-only builders, including generated payload files)"
+NIX_CONFIG=$'builders =\n' nix build "path:$ROOT_DIR#bootstrap-installer-iso" --no-link -o result
 
 RESULT_PATH="$(readlink -f result)"
 if [[ -f "$RESULT_PATH" && "$RESULT_PATH" == *.iso ]]; then
