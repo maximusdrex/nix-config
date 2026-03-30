@@ -15,6 +15,8 @@ switch target:
     fi
     @echo "==> Checking Clan vars for {{target}}"
     CLAN_DIR="$PWD" clan vars check {{target}}
+    @echo "==> Login password that will be set for user 'max' on {{target}}:"
+    @CLAN_DIR="$PWD" clan vars get {{target}} user-password-max/user-password
     @echo "==> Switching system to .#{{target}}"
     sudo --preserve-env=SOPS_AGE_KEY_FILE,CLAN_DIR \
       CLAN_DIR="$PWD" \
