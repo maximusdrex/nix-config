@@ -10,17 +10,26 @@ Generated (ignored):
 ## What gets encrypted into payload
 
 - A working copy of this repo at `/opt/nix-config`
-- Your sops age key file (from `$SOPS_AGE_KEY_FILE` or `~/.config/sops/age/keys.txt`) at:
-  - `bootstrap-secrets/sops-age-key.txt`
+- Optional bootstrap assets (for example Berkeley Mono archive)
 
-On the live USB, `bootstrap-unlock` decrypts and installs the key to:
-- `/var/lib/sops-nix/key.txt`
-- `/home/nixos/.config/sops/age/keys.txt`
-- `/mnt/var/lib/sops-nix/key.txt` (if `/mnt` exists)
+The bootstrap payload **does not** include a shared operator SOPS private key.
+
+## Runtime host key provisioning (new model)
+
+After `bootstrap-unlock` and `bootstrap-disko`, generate a host-local runtime key:
+
+- `bootstrap-provision-host-age-key <target>`
+
+This will:
+- install a freshly generated age identity to `/mnt/var/lib/sops-nix/key.txt`
+- update `/opt/nix-config/sops/machines/<target>/key.json` with the new machine recipient
+
+Then commit/push that machine recipient update so future encryptions target the host key.
 
 Optional font bootstrap:
 - If `bootstrap/berkeley-mono-1.009.zip` exists when you run `just write flash`, it is embedded and restored to:
   - `/opt/nix-config/bootstrap/berkeley-mono-1.009.zip`
+  - `/opt/nix-config/packages/berkeley-mono/berkeley-mono-1.009.zip`
 
 ## Typical flow
 
@@ -30,7 +39,7 @@ Optional font bootstrap:
 2. Boot target machine from USB.
 3. In installer environment, run:
    - `bootstrap-unlock`
-4. Then:
-   - `cd /opt/nix-config`
-   - `nix develop .#bootstrap`
-   - `just switch <target>`
+   - `bootstrap-disko <target> <disk>`
+   - `bootstrap-capture-hardware <target>`
+   - `bootstrap-provision-host-age-key <target>`
+   - `bootstrap-install <target>`

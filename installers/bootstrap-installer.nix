@@ -38,21 +38,9 @@ let
     $SUDO rm -rf /opt/nix-config
     $SUDO cp -a "$TMPDIR/opt/nix-config" /opt/
 
-    if [[ -f "$TMPDIR/bootstrap-secrets/sops-age-key.txt" ]]; then
-      $SUDO install -Dm600 "$TMPDIR/bootstrap-secrets/sops-age-key.txt" /var/lib/sops-nix/key.txt
-      $SUDO install -Dm600 "$TMPDIR/bootstrap-secrets/sops-age-key.txt" /home/nixos/.config/sops/age/keys.txt
-      $SUDO chown -R nixos:users /home/nixos/.config/sops || true
-
-      if [[ -d /mnt ]]; then
-        $SUDO install -Dm600 "$TMPDIR/bootstrap-secrets/sops-age-key.txt" /mnt/var/lib/sops-nix/key.txt || true
-      fi
-
-      echo "Installed sops age key to /var/lib/sops-nix/key.txt"
-      echo "Installed sops age key to /home/nixos/.config/sops/age/keys.txt"
-      echo "(and /mnt/var/lib/sops-nix/key.txt if /mnt is present)"
-    else
-      echo "WARNING: payload did not include bootstrap-secrets/sops-age-key.txt"
-    fi
+    echo "NOTE: bootstrap no longer installs a shared operator SOPS key."
+    echo "After disko, provision a host runtime age key with:"
+    echo "  bootstrap-provision-host-age-key <target>"
 
     if [[ -f "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" ]]; then
       $SUDO install -Dm644 "$TMPDIR/bootstrap-secrets/berkeley-mono-1.009.zip" /opt/nix-config/bootstrap/berkeley-mono-1.009.zip
@@ -156,6 +144,69 @@ let
     echo "Updated hardware config: $DST"
   '';
 
+  provisionHostAgeKeyScript = pkgs.writeShellScriptBin "bootstrap-provision-host-age-key" ''
+    #!${pkgs.bash}/bin/bash
+    set -euo pipefail
+
+    TARGET="''${1:-}"
+    if [[ -z "$TARGET" ]]; then
+      echo "Usage: bootstrap-provision-host-age-key <target-machine>"
+      exit 1
+    fi
+
+    if [[ ! -d /opt/nix-config ]]; then
+      echo "ERROR: /opt/nix-config not found. Run bootstrap-unlock first."
+      exit 1
+    fi
+
+    if [[ ! -d /mnt ]]; then
+      echo "ERROR: /mnt not present. Run bootstrap-disko first."
+      exit 1
+    fi
+
+    key_dst="/mnt/var/lib/sops-nix/key.txt"
+    machine_key_json="/opt/nix-config/sops/machines/$TARGET/key.json"
+
+    if [[ -f "$key_dst" ]]; then
+      echo "WARNING: existing host key found at $key_dst"
+      read -r -p "Overwrite with newly generated key? Type YES to continue: " confirm
+      [[ "$confirm" == "YES" ]] || { echo "Aborted"; exit 1; }
+    fi
+
+    tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT
+
+    ${pkgs.age}/bin/age-keygen -o "$tmp" >/dev/null
+    pub="$(grep '^# public key:' "$tmp" | sed -E 's/^# public key: (.*)$/\1/')"
+
+    if [[ -z "$pub" ]]; then
+      echo "ERROR: failed to parse generated public key"
+      exit 1
+    fi
+
+    sudo install -Dm600 "$tmp" "$key_dst"
+
+    if [[ -f "$machine_key_json" ]]; then
+      sudo cp "$machine_key_json" "$machine_key_json.bak.$(date +%Y%m%d%H%M%S)"
+    fi
+
+    cat > "$tmp" <<EOF
+{
+  "age": {
+    "publickey": "$pub",
+    "type": "age"
+  }
+}
+EOF
+    sudo install -Dm644 "$tmp" "$machine_key_json"
+    sudo chown nixos:users "$machine_key_json" || true
+
+    echo "Provisioned runtime age key at: $key_dst"
+    echo "Updated machine recipient file: $machine_key_json"
+    echo "New machine recipient: $pub"
+    echo "Next: commit and push recipient updates from /opt/nix-config"
+  '';
+
   installScript = pkgs.writeShellScriptBin "bootstrap-install" ''
     #!${pkgs.bash}/bin/bash
     set -euo pipefail
@@ -220,6 +271,7 @@ in {
     unlockScript
     diskoScript
     captureHardwareScript
+    provisionHostAgeKeyScript
     installScript
   ];
 
@@ -240,12 +292,13 @@ in {
           2) bootstrap-unlock
           3) bootstrap-disko <target> <disk>
           4) bootstrap-capture-hardware <target>
-          5) bootstrap-install <target>
+          5) bootstrap-provision-host-age-key <target>
+          6) bootstrap-install <target>
 
         Notes:
           - Flakes are enabled in this live environment.
           - Decrypted repo path: /opt/nix-config
-          - SOPS key path installed: /var/lib/sops-nix/key.txt
+          - Provision host runtime key with: bootstrap-provision-host-age-key <target>
           - bootstrap-disko uses target disko config when available, else a default EFI+ext4 desktop layout
       '';
     }

@@ -31,12 +31,6 @@ cd "$ROOT_DIR"
 
 mkdir -p bootstrap
 
-SOPS_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
-if [[ ! -s "$SOPS_KEY_FILE" ]]; then
-  echo "ERROR: SOPS age key file not found or empty: $SOPS_KEY_FILE"
-  exit 1
-fi
-
 echo "==> Insert your FIDO2/U2F security key now."
 read -r -p "Press Enter when ready to generate identity... " _
 
@@ -69,8 +63,13 @@ rsync -a --delete \
   --exclude 'bootstrap/fido2-recipient.txt' \
   "$ROOT_DIR/" "$TMPDIR/payload/opt/nix-config/"
 
-cp "$SOPS_KEY_FILE" "$TMPDIR/payload/bootstrap-secrets/sops-age-key.txt"
-chmod 600 "$TMPDIR/payload/bootstrap-secrets/sops-age-key.txt"
+FONT_ARCHIVE="${BOOTSTRAP_BERKELEY_MONO_FILE:-$ROOT_DIR/bootstrap/berkeley-mono-1.009.zip}"
+if [[ -f "$FONT_ARCHIVE" ]]; then
+  echo "==> Including Berkeley Mono archive from: $FONT_ARCHIVE"
+  cp "$FONT_ARCHIVE" "$TMPDIR/payload/bootstrap-secrets/berkeley-mono-1.009.zip"
+else
+  echo "==> Berkeley Mono archive not found (optional): $FONT_ARCHIVE"
+fi
 
 TAR_PATH="$TMPDIR/payload.tar.gz"
 tar -C "$TMPDIR/payload" -czf "$TAR_PATH" .
@@ -79,14 +78,6 @@ age -R "$RECIPIENT_FILE" -o bootstrap/payload.age "$TAR_PATH"
 chmod 600 bootstrap/payload.age
 
 echo "Wrote bootstrap/payload.age"
-
-FONT_ARCHIVE="${BOOTSTRAP_BERKELEY_MONO_FILE:-$ROOT_DIR/bootstrap/berkeley-mono-1.009.zip}"
-if [[ -f "$FONT_ARCHIVE" ]]; then
-  echo "==> Including Berkeley Mono archive from: $FONT_ARCHIVE"
-  cp "$FONT_ARCHIVE" "$TMPDIR/payload/bootstrap-secrets/berkeley-mono-1.009.zip"
-else
-  echo "==> Berkeley Mono archive not found (optional): $FONT_ARCHIVE"
-fi
 
 echo "==> Building bootstrap installer ISO (local-only builders, including generated payload files)"
 NIX_CONFIG=$'builders =\n' nix build "path:$ROOT_DIR#bootstrap-installer-iso" --no-link -o result
