@@ -12,6 +12,7 @@
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/qDFl92Ao8C4LVIbBsZQmlTzXa8+/lglFfIpD7VKp7 max@max-g14-nix"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFI8YFza97xCDAjC5c254wp2jtjyHOaWLJueVFqZp86r max@max-g14-nix"
+      "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIKpPHAJv43ptCfwDPXvYfNhpX9WnkBx9azKbTTJH/E+pAAAABHNzaDo= max-fido-main"
     ];
   };
 
