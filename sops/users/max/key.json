@@ -1,18 +1,10 @@
 [
   {
-    "publickey": "age14nfsekdfe8c3j5lsl0hwsu27606aua7a40an4nx90nd0afm233ts43cp2c",
-    "type": "age"
-  },
-  {
     "publickey": "age14tn6te326ewu9zlzlcq04c3dngqsptkznwtqn6f02upremxu8ckq2rfhz3",
     "type": "age"
   },
   {
-    "publickey": "age14uyhaewedx8dtzcdjus7q9q8vyhut4txc44xakykqrqf88jjy3kqzkezut",
-    "type": "age"
-  },
-  {
-    "publickey": "age1zz7e84eaex7hfc7wgrvwsjt6f0qw4ha5yfvhjyqk6fts208z9f9sf5e2pc",
+    "publickey": "age19r6ctx0dfdfu9jazv6czmrhe45rh3w8p7x9z9652tatpjnuwxddsk8elsf",
     "type": "age"
   }
 ]

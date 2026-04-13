@@ -21,33 +21,16 @@ for cmd in nix age tar rsync; do
   command -v "$cmd" >/dev/null || { echo "Missing command: $cmd"; exit 1; }
 done
 
-if ! command -v age-plugin-fido2-hmac >/dev/null 2>&1; then
-  echo "ERROR: age-plugin-fido2-hmac is required. Run inside nix develop .#bootstrap"
-  exit 1
-fi
-
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 mkdir -p bootstrap
 
-echo "==> Insert your FIDO2/U2F security key now."
-read -r -p "Press Enter when ready to generate identity... " _
-
-IDENTITY_FILE="bootstrap/fido2-identity.txt"
-RECIPIENT_FILE="bootstrap/fido2-recipient.txt"
-
-echo "==> Generating fresh FIDO2 age identity"
-age-plugin-fido2-hmac -g > "$IDENTITY_FILE"
-chmod 600 "$IDENTITY_FILE"
-
-recipient="$(grep -Eo 'age1[0-9a-z]+' "$IDENTITY_FILE" | head -n1 || true)"
-if [[ -z "$recipient" ]]; then
-  echo "ERROR: Could not extract recipient from $IDENTITY_FILE"
+if [[ ! -s "$ROOT_DIR/sops/users/max/fido-identities.txt" ]]; then
+  echo "ERROR: missing repo-tracked FIDO identity stub: sops/users/max/fido-identities.txt"
+  echo "The installer uses this both for payload unlock and for 'clan vars upload'."
   exit 1
 fi
-printf '%s\n' "$recipient" > "$RECIPIENT_FILE"
-chmod 600 "$RECIPIENT_FILE"
 
 echo "==> Building encrypted bootstrap payload"
 TMPDIR="$(mktemp -d /tmp/bootstrap-payload.XXXXXX)"
@@ -59,8 +42,6 @@ rsync -a --delete \
   --exclude '.git' \
   --exclude 'result' \
   --exclude 'bootstrap/payload.age' \
-  --exclude 'bootstrap/fido2-identity.txt' \
-  --exclude 'bootstrap/fido2-recipient.txt' \
   "$ROOT_DIR/" "$TMPDIR/payload/opt/nix-config/"
 
 FONT_ARCHIVE="${BOOTSTRAP_BERKELEY_MONO_FILE:-$ROOT_DIR/bootstrap/berkeley-mono-1.009.zip}"
@@ -74,7 +55,20 @@ fi
 TAR_PATH="$TMPDIR/payload.tar.gz"
 tar -C "$TMPDIR/payload" -czf "$TAR_PATH" .
 
-age -R "$RECIPIENT_FILE" -o bootstrap/payload.age "$TAR_PATH"
+mapfile -t recipients < <(nix eval --raw --file "$ROOT_DIR/scripts/print-operator-age-recipients.nix")
+if [[ "${#recipients[@]}" -eq 0 ]]; then
+  echo "ERROR: No operator age recipients found in sops/users/max/key.json"
+  exit 1
+fi
+
+age_args=()
+for recipient in "${recipients[@]}"; do
+  [[ -n "$recipient" ]] || continue
+  age_args+=("-r" "$recipient")
+done
+
+echo "==> Encrypting bootstrap payload to operator recipients from sops/users/max/key.json"
+age "${age_args[@]}" -o bootstrap/payload.age "$TAR_PATH"
 chmod 600 bootstrap/payload.age
 
 echo "Wrote bootstrap/payload.age"
@@ -101,4 +95,7 @@ read -r -p "Type YES to continue: " confirm
 sudo dd if="$ISO_PATH" of="$DEVICE" bs=4M conv=fsync status=progress
 sync
 
-echo "Done. Boot from $DEVICE, then run: bootstrap-unlock"
+echo "Done. Boot from $DEVICE, connect networking if needed, then run:"
+echo "  bootstrap-install <target> <disk>"
+echo
+echo "If you changed operator keys or generated vars for a new target, make sure this USB was rebuilt after that change."

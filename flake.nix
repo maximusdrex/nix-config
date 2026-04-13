@@ -63,11 +63,15 @@
               clan-core.packages.${system}.clan-cli
               git
               age
-              sops
+              openssh
               just
               age-plugin-fido2-hmac
               fido2-manage
             ];
+            shellHook = ''
+              export CLAN_DIR="$PWD"
+              export AGE_KEYFILE="$PWD/sops/users/max/fido-identities.txt"
+            '';
           };
           default = self.devShells.${system}.bootstrap;
         });

@@ -1,10 +1,25 @@
 { inputs, ... }:
 let
+  lib = inputs.nixpkgs.lib;
   stripTrailingNewline = value: builtins.replaceStrings [ "\n" ] [ "" ] value;
+  operatorAgeRecipients = import ./lib/operator-age-recipients.nix;
   zerotierIP = machine:
-    stripTrailingNewline (
-      builtins.readFile (./vars/per-machine + "/${machine}/zerotier/zerotier-ip/value")
-    );
+    let
+      path = ./vars/per-machine + "/${machine}/zerotier/zerotier-ip/value";
+    in
+    if builtins.pathExists path then
+      stripTrailingNewline (builtins.readFile path)
+    else
+      null;
+  corednsMachine = machine: services:
+    let
+      ip = zerotierIP machine;
+    in
+    lib.optionalAttrs (ip != null) {
+      ${machine}.settings = {
+        inherit ip services;
+      };
+    };
   internalZTDomain = "zt.maxschaefer.me";
 
   # The official CoreDNS service currently expects an IPv4 endpoint for the
@@ -12,14 +27,23 @@ let
   hetznerPublicIPv4 = "5.78.135.36";
 in
 {
+  vars.settings = {
+    secretStore = "age";
+    recipients.default = operatorAgeRecipients;
+  };
+
   meta = {
     name = "max-clan";
     domain = "maxschaefer.me";
   };
 
   exportInterfaces.publicProxy = ./clanServices/edge-proxy/export-interface.nix;
-  modules.build-farm = ./clanServices/build-farm;
-  modules.edge-proxy = ./clanServices/edge-proxy;
+  modules =
+    {
+      build-farm = ./clanServices/build-farm;
+      edge-proxy = ./clanServices/edge-proxy;
+      operator-access = ./clanServices/operator-access;
+    };
 
   inventory.machines = {
     max-hetzner-nix = {
@@ -41,6 +65,10 @@ in
       tags = [ "nixos" "desktop" "laptop" ];
     };
 
+    max-fw-modal = {
+      tags = [ "nixos" "desktop" "laptop" ];
+    };
+
     max-xps-modal = {
       tags = [ "nixos" "desktop" "laptop" ];
     };
@@ -51,10 +79,16 @@ in
     sshd = {
       roles.server.tags.all = { };
       roles.client.tags.nixos = { };
-      roles.server.settings.authorizedKeys = {
-        "max-admin" = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/qDFl92Ao8C4LVIbBsZQmlTzXa8+/lglFfIpD7VKp7 max@max-g14-nix";
-      };
       roles.server.settings.certificate.searchDomains = [ internalZTDomain ];
+    };
+
+    operator-access = {
+      module = {
+        input = "self";
+        name = "operator-access";
+      };
+
+      roles.server.tags.all = { };
     };
 
     user-root = {
@@ -141,31 +175,13 @@ in
       };
 
       roles.default.tags.all = { };
-
-      roles.default.machines."max-hetzner-nix".settings = {
-        ip = zerotierIP "max-hetzner-nix";
-        services = [ "max-hetzner-nix" "monitoring" ];
-      };
-
-      roles.default.machines."max-richard-nix".settings = {
-        ip = zerotierIP "max-richard-nix";
-        services = [ "max-richard-nix" ];
-      };
-
-      roles.default.machines."max-openclaw-nix".settings = {
-        ip = zerotierIP "max-openclaw-nix";
-        services = [ "max-openclaw-nix" ];
-      };
-
-      roles.default.machines."max-g14-nix".settings = {
-        ip = zerotierIP "max-g14-nix";
-        services = [ "max-g14-nix" ];
-      };
-
-      roles.default.machines."max-xps-modal".settings = {
-        ip = zerotierIP "max-xps-modal";
-        services = [ "max-xps-modal" ];
-      };
+      roles.default.machines =
+        (corednsMachine "max-hetzner-nix" [ "max-hetzner-nix" "monitoring" ])
+        // (corednsMachine "max-richard-nix" [ "max-richard-nix" ])
+        // (corednsMachine "max-openclaw-nix" [ "max-openclaw-nix" ])
+        // (corednsMachine "max-g14-nix" [ "max-g14-nix" ])
+        // (corednsMachine "max-fw-modal" [ "max-fw-modal" ])
+        // (corednsMachine "max-xps-modal" [ "max-xps-modal" ]);
     };
 
     monitoring = {
@@ -197,8 +213,8 @@ in
         priority = 25;
       };
 
-      roles.client.tags.nixos = { };
-      roles.client.settings.builderDomain = internalZTDomain;
+      # roles.client.tags.nixos = { };
+      # roles.client.settings.builderDomain = internalZTDomain;
     };
 
     edge-proxy = {
@@ -302,6 +318,21 @@ in
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
           home-manager.users.max = import ./homes/max-g14-nix.nix;
+        }
+      ];
+    };
+
+    max-fw-modal = {
+      nixpkgs.hostPlatform = "x86_64-linux";
+      clan.core.deployment.requireExplicitUpdate = true;
+      imports = [
+        ./machines/max-fw-modal
+        inputs.home-manager.nixosModules.home-manager
+        inputs.nixos-hardware.nixosModules.asus-zephyrus-ga402x-nvidia
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.users.max = import ./homes/max-fw-modal.nix;
         }
       ];
     };

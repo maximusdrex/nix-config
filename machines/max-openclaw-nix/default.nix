@@ -12,6 +12,15 @@ in
 
   nixpkgs.overlays = [ inputs.nix-openclaw.overlays.default ];
 
+  # This host should build locally for now. The build-farm module can stay in
+  # the repo, but we explicitly clear any remote-builder settings here so a
+  # successful switch pins the machine back to local builds.
+  nix.distributedBuilds = lib.mkForce false;
+  nix.buildMachines = lib.mkForce [ ];
+  nix.settings.builders = lib.mkForce "";
+  nix.settings.builders-use-substitutes = lib.mkForce false;
+  nix.settings.trusted-users = lib.mkAfter [ "max" ];
+
   networking.firewall = {
     enable = lib.mkForce true;
     allowedTCPPorts = [ 22 ];

@@ -5,8 +5,10 @@ result/
 secrets/**
 !secrets/
 !secrets/README.md
+!secrets/age-keys/
+!secrets/age-keys/**
+!secrets/clan-vars/
+!secrets/clan-vars/**
 
 # Generated bootstrap artifacts
 bootstrap/payload.age
-bootstrap/fido2-identity.txt
-bootstrap/fido2-recipient.txt

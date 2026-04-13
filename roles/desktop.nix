@@ -80,7 +80,7 @@ in
   ];
 
   environment.systemPackages = [
-    pkgs.active-firmware-tools
+    # pkgs.active-firmware-tools
   ];
 
   programs.kde-pim.enable = true;
