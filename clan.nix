@@ -2,7 +2,7 @@
 let
   lib = inputs.nixpkgs.lib;
   stripTrailingNewline = value: builtins.replaceStrings [ "\n" ] [ "" ] value;
-  operatorAgeRecipients = import ./lib/operator-age-recipients.nix;
+  operatorAgeRecipients = import ./operators/max/recipients.nix;
   zerotierIP = machine:
     let
       path = ./vars/per-machine + "/${machine}/zerotier/zerotier-ip/value";
@@ -123,7 +123,7 @@ in
         "hugo" "glow" "wishlist" "go" "pkg-config" "pcsclite" "devcontainer" "wl-clipboard-rs"
         "btop" "iotop" "iftop" "strace" "ltrace" "lsof"
         "sysstat" "lm_sensors" "ethtool" "pciutils" "usbutils" "inetutils" "linuxConsoleTools"
-        "gcc_multi" "cmake" "gnumake" "ninja" "just"
+        "gcc_multi" "cmake" "gnumake" "ninja"
         "android-tools" 
 
         # Python

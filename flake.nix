@@ -25,7 +25,10 @@
 
   outputs = inputs@{ self, nixpkgs, clan-core, ... }:
     let
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
 
       clanConfig = import ./clan.nix { inherit inputs self; };
@@ -34,46 +37,28 @@
         specialArgs = { inherit inputs self; };
       } // clanConfig);
     in {
-      nixosConfigurations = clan.config.nixosConfigurations // {
-        bootstrap-installer = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          specialArgs = { inherit inputs self; };
-          modules = [ ./installers/bootstrap-installer.nix ];
-        };
-      };
+      nixosConfigurations = clan.config.nixosConfigurations;
       inherit (clan.config) nixosModules clanInternals;
       clan = clan.config;
-
-      packages = forAllSystems (system:
-        let
-          pkgs = import nixpkgs { inherit system; };
-        in
-          if system == "x86_64-linux" then {
-            bootstrap-installer-iso = self.nixosConfigurations.bootstrap-installer.config.system.build.isoImage;
-          } else {
-            default = pkgs.emptyFile;
-          });
 
       devShells = forAllSystems (system:
         let
           pkgs = import nixpkgs { inherit system; };
         in {
-          bootstrap = pkgs.mkShell {
+          default = pkgs.mkShell {
             packages = with pkgs; [
               clan-core.packages.${system}.clan-cli
               git
               age
               openssh
-              just
               age-plugin-fido2-hmac
               fido2-manage
             ];
             shellHook = ''
               export CLAN_DIR="$PWD"
-              export AGE_KEYFILE="$PWD/sops/users/max/fido-identities.txt"
+              export AGE_KEYFILE="$PWD/operators/max/fido-age-identity.txt"
             '';
           };
-          default = self.devShells.${system}.bootstrap;
         });
     };
 }

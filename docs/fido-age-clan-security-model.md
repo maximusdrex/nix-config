@@ -1,24 +1,22 @@
-# FIDO + Clan Security Notes
+# FIDO + Clan Age Notes
 
-This draft white paper has been superseded by the simpler policy in
-[`security_model.md`](../security_model.md).
+The active policy is documented in [`../security_model.md`](../security_model.md).
 
-The repo now follows these rules:
+Current state:
 
-- human secret access is defined by `sops/users/max/key.json`
-- that `sops/users` path is now only operator key metadata, not the secret store
-- that user recipient set includes the offline recovery recipient
-- day-to-day operator decryption uses the repo-tracked FIDO stub at `sops/users/max/fido-identities.txt`
-- the repo now uses Clan's native `age` backend for runtime secrets
-- machine runtime keys live under `secrets/age-keys/machines/*`
-- encrypted runtime vars live under `secrets/clan-vars/*`
-- shared secrets stay normal Clan-managed shared vars
-- SSH cert signing reads the shared CA through normal Clan vars instead of backend-specific decrypt logic
+- Clan's native `age` vars backend is the only repository secret backend.
+- Operator recipients are plain Nix data in `operators/max/recipients.nix`.
+- Operator decryption normally uses `operators/max/fido-age-identity.txt`.
+- Machine runtime keys live under `secrets/age-keys/machines/*`.
+- Encrypted vars live under `secrets/clan-vars/*`.
+- Public generated values live under `vars/*`.
 
-During the transition:
+Use upstream Clan commands for generation, validation, repair, and deployment:
 
-- servers trust the shared SSH user CA through `clanServices/operator-access`
-- a static admin `authorized_keys` fallback may remain for testing
-- SSH certs default to a long validity window for convenience
-
-For the current source of truth, use [`security_model.md`](../security_model.md).
+```sh
+nix develop
+clan vars check
+clan vars generate <machine>
+clan vars fix <machine>
+clan machines update <machine>
+```

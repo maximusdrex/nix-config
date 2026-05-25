@@ -1,18 +1,15 @@
 # Clan Age Backend Secrets
 
-This directory holds the encrypted secret material for Clan's native `age` backend.
+This directory holds encrypted data for Clan's native `age` vars backend.
 
-Layout:
+Committed layout:
 
 - `age-keys/machines/<machine>/pub`
-  machine public key
 - `age-keys/machines/<machine>/key.age`
-  machine private key encrypted to operator recipients
 - `age-keys/machines/<machine>/key.age.recipients`
-  operator recipients for that encrypted machine key
 - `clan-vars/per-machine/.../*.age`
-  per-machine secret vars
 - `clan-vars/shared/.../*.age`
-  shared secret vars
 
-These files are encrypted and are meant to be committed.
+These files are encrypted and are meant to be committed. Do not replace this
+with a repo-local secret wrapper; use `clan vars generate`, `clan vars fix`,
+`clan vars check`, and `clan machines update`.
