@@ -77,7 +77,7 @@ in
   # Baseline, clan-native services.
   inventory.instances = {
     sshd = {
-      roles.server.tags.all = { };
+      roles.server.tags.server = { };
       roles.client.tags.nixos = { };
       roles.server.settings.certificate.searchDomains = [ internalZTDomain ];
     };

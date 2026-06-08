@@ -26,6 +26,23 @@
         "url": "https://git.clan.lol/clan/clan-core/archive/main.tar.gz"
       }
     },
+    "codex-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1780786295,
+        "narHash": "sha256-WIJYHLWMIpWVSBuCTmlqPl0s49SXEiwyAqSD/YzFa7Y=",
+        "path": "/home/max/Documents/tools/codex-nix",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/max/Documents/tools/codex-nix",
+        "type": "path"
+      }
+    },
     "data-mesher": {
       "inputs": {
         "flake-parts": [
@@ -131,6 +148,23 @@
         "owner": "nix-community",
         "repo": "home-manager",
         "type": "github"
+      }
+    },
+    "lab-bar": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1780786295,
+        "narHash": "sha256-cgRI1DpU6W26U+PQpUiqgjf3csS2cpR8tc2tWWU7j8w=",
+        "path": "/home/max/Documents/tools/lab-bar",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/max/Documents/tools/lab-bar",
+        "type": "path"
       }
     },
     "nix-darwin": {
@@ -261,7 +295,9 @@
     "root": {
       "inputs": {
         "clan-core": "clan-core",
+        "codex-nix": "codex-nix",
         "home-manager": "home-manager",
+        "lab-bar": "lab-bar",
         "nix-openclaw": "nix-openclaw",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs_2"
