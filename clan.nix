@@ -203,7 +203,9 @@ in
     };
 
     zerotier = {
-      roles.controller.machines."max-hetzner-nix" = { };
+      roles.controller.machines."max-hetzner-nix".settings.allowedIds = [
+        "3eef1c8f4d"
+      ];
       roles.peer.tags.all = { };
     };
 
