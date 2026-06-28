@@ -61,6 +61,46 @@ in
 
   networking.firewall.enable = false;
 
+  systemd.tmpfiles.rules = [
+    "d /home/max/.codex 0700 max users -"
+    "d /home/max/.config 0700 max users -"
+    "d /home/max/.gnupg 0700 max users -"
+    "d /home/max/.local 0700 max users -"
+    "d /home/max/.local/share 0700 max users -"
+    "d /home/max/.local/state 0700 max users -"
+    "d /home/max/.ssh 0700 max users -"
+    "d /home/max/Desktop 0755 max users -"
+    "d /home/max/Documents 0755 max users -"
+    "d /home/max/Downloads 0755 max users -"
+    "d /home/max/MODELS 0755 max users -"
+    "d /home/max/Music 0755 max users -"
+    "d /home/max/Pictures 0755 max users -"
+    "d /home/max/Public 0755 max users -"
+    "d /home/max/RADIO 0755 max users -"
+    "d /home/max/Templates 0755 max users -"
+    "d /home/max/Videos 0755 max users -"
+    "d /home/max/bin 0755 max users -"
+    "d /home/max/nix-config 0755 max users -"
+  ];
+
+  clan.core.state.desktop-home.folders = [
+    "/home/max/.codex"
+    "/home/max/.config"
+    "/home/max/.gnupg"
+    "/home/max/.local/share"
+    "/home/max/.local/state"
+    "/home/max/.ssh"
+    "/home/max/Desktop"
+    "/home/max/Documents"
+    "/home/max/MODELS"
+    "/home/max/Music"
+    "/home/max/Pictures"
+    "/home/max/RADIO"
+    "/home/max/Videos"
+    "/home/max/bin"
+    "/home/max/nix-config"
+  ];
+
   programs.firefox.enable = true;
   hardware.saleae-logic.enable = true;
   programs.nix-ld.enable = true;

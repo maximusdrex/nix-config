@@ -41,6 +41,7 @@ in
   modules =
     {
       build-farm = ./clanServices/build-farm;
+      desktop-access = ./clanServices/desktop-access;
       edge-proxy = ./clanServices/edge-proxy;
       operator-access = ./clanServices/operator-access;
     };
@@ -89,6 +90,42 @@ in
       };
 
       roles.server.tags.all = { };
+    };
+
+    desktop-access = {
+      module = {
+        input = "self";
+        name = "desktop-access";
+      };
+
+      roles.client.tags.desktop = { };
+      roles.server.tags.server = { };
+    };
+
+    borgbackup-desktops = {
+      module.name = "borgbackup";
+
+      roles.client.tags.desktop = { };
+      roles.client.settings = {
+        startAt = "*-*-* 03:00:00";
+        exclude = [
+          "/home/max/.cache"
+          "/home/max/.local/share/Trash"
+          "/home/max/.local/share/Steam"
+          "/home/max/.local/share/containers/storage"
+          "/home/max/.var/app/*/cache"
+          "/home/max/Downloads"
+          "*/.direnv"
+          "*/node_modules"
+          "*/result"
+          "*/target"
+        ];
+      };
+
+      roles.server.machines."max-richard-nix".settings = {
+        address = "max-richard-nix.${internalZTDomain}";
+        directory = "/var/lib/borgbackup/desktops";
+      };
     };
 
     user-root = {
