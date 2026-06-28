@@ -26,16 +26,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
     };
-
-    lab-bar = {
-      url = "path:/home/max/Documents/tools/lab-bar";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    codex-nix = {
-      url = "path:/home/max/Documents/tools/codex-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = inputs@{ self, nixpkgs, clan-core, ... }:

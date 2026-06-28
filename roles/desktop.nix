@@ -11,12 +11,8 @@ in
 {
   imports = [
     ./base.nix
-    inputs.lab-bar.nixosModules.default
-    inputs.codex-nix.nixosModules.default
   ];
 
-  programs.lab-bar.enable = true;
-  services.codex-nix.enable = true;
 
   environment.profileRelativeSessionVariables.QML_IMPORT_PATH = [ "/lib/qt-6/qml" ];
 
