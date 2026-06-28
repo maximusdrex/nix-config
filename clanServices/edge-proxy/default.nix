@@ -104,9 +104,8 @@ in
         edgeMachineNames = lib.attrNames (roles.edge.machines or { });
         zerotierIP = clanLib.getPublicValue {
           flake = directory;
-          machine = machine.name;
-          generator = "zerotier";
-          file = "zerotier-ip";
+          generator = "zerotier-ip-${machine.name}-zerotier";
+          file = "ip";
           default = null;
         };
         upstreamHost = if lib.elem machine.name edgeMachineNames then "127.0.0.1" else zerotierIP;

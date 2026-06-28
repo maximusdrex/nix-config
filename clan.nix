@@ -5,7 +5,9 @@ let
   operatorAgeRecipients = import ./operators/max/recipients.nix;
   zerotierIP = machine:
     let
-      path = ./vars/per-machine + "/${machine}/zerotier/zerotier-ip/value";
+      newPath = ./vars/shared + "/zerotier-ip-${machine}-zerotier/ip/value";
+      oldPath = ./vars/per-machine + "/${machine}/zerotier/zerotier-ip/value";
+      path = if builtins.pathExists newPath then newPath else oldPath;
     in
     if builtins.pathExists path then
       stripTrailingNewline (builtins.readFile path)
@@ -206,6 +208,11 @@ in
     };
 
     coredns = {
+      module = {
+        input = "clan-community";
+        name = "coredns";
+      };
+
       roles.server.machines."max-hetzner-nix".settings = {
         ip = hetznerPublicIPv4;
         tld = internalZTDomain;

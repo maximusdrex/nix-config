@@ -9,6 +9,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    clan-community = {
+      url = "https://git.clan.lol/clan/clan-community/archive/main.tar.gz";
+      inputs.clan-core.follows = "clan-core";
+    };
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";

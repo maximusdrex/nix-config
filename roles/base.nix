@@ -1,4 +1,4 @@
-{ inputs, pkgs, self, ... }:
+{ inputs, lib, pkgs, self, ... }:
 let
   sourceInfo = self.sourceInfo or {};
   configurationRevision =
@@ -29,7 +29,7 @@ in
   };
 
   boot.initrd.systemd.enable = true;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
   time.timeZone = "America/Los_Angeles";
   i18n.defaultLocale = "en_US.UTF-8";

@@ -1,7 +1,7 @@
 { config, lib, pkgs, inputs, ... }:
 let
   zerotierIPv6 = lib.strings.removeSuffix "\n" (
-    builtins.readFile ../../vars/per-machine/max-openclaw-nix/zerotier/zerotier-ip/value
+    builtins.readFile ../../vars/shared/zerotier-ip-max-openclaw-nix-zerotier/ip/value
   );
 in
 {

@@ -13,20 +13,9 @@
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
 
-  fileSystems."/" =
-    { device = "/dev/disk/by-uuid/eacaba3f-33ad-4808-b64a-5b8d6e1a0307";
-      fsType = "ext4";
-    };
-
-  fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/2D67-0049";
-      fsType = "vfat";
-      options = [ "fmask=0077" "dmask=0077" ];
-    };
-
-  swapDevices =
-    [ { device = "/dev/disk/by-uuid/9d56bbe1-2657-449f-b051-f7ea8a7dbbf7"; }
-    ];
+  # Filesystems are declared reproducibly in ./disko.nix. Keep this file for
+  # hardware-specific kernel modules and platform facts only.
+  swapDevices = [ ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's

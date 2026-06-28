@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, inputs, lib, pkgs, ... }:
 
 ########################
 # Host-specific config
@@ -9,6 +9,7 @@
   imports =
     [ 
        ./hardware-configuration.nix
+       ./disko.nix
        ../../roles/server.nix
        ../../modules/home-assistant
     ];
@@ -34,6 +35,10 @@
   ######################
 
   services.timesyncd.enable = true;
+
+  image.modules.iso.imports = [
+    inputs.clan-core.nixosModules.installer
+  ];
 
   virtualisation.oci-containers.backend = "podman"; # or "docker" if that’s what you use
   virtualisation.oci-containers.containers.matter-server = {
@@ -73,7 +78,7 @@
     openFirewall = false;
     trustedProxyIPs = [
       (lib.strings.removeSuffix "\n" (
-        builtins.readFile ../../vars/per-machine/max-hetzner-nix/zerotier/zerotier-ip/value
+        builtins.readFile ../../vars/shared/zerotier-ip-max-hetzner-nix-zerotier/ip/value
       ))
     ];
     # listenAddress = "0.0.0.0";            # default is fine

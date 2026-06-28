@@ -19,9 +19,8 @@ let
     machineName:
     clanLib.getPublicValue {
       flake = directory;
-      machine = machineName;
-      generator = "zerotier";
-      file = "zerotier-ip";
+      generator = "zerotier-ip-${machineName}-zerotier";
+      file = "ip";
       default = null;
     };
 
