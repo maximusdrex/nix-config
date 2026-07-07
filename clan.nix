@@ -23,6 +23,21 @@ let
       };
     };
   internalZTDomain = "zt.maxschaefer.me";
+  clanInternalNetworking = machine: {
+    clan.core.networking.internalListenAddresses = lib.optional (zerotierIP machine != null) (zerotierIP machine);
+  };
+  desktopClanNetworking = machine: {
+    clan.core.networking = {
+      internalListenAddresses = lib.optional (zerotierIP machine != null) (zerotierIP machine);
+      targetHost = lib.mkDefault "root@${machine}.${internalZTDomain}";
+    };
+  };
+  desktopBorgbackupProgress = {
+    services.borgbackup.jobs.max-richard-nix.extraCreateArgs = [
+      "--stats"
+      "--progress"
+    ];
+  };
 
   # The official CoreDNS service currently expects an IPv4 endpoint for the
   # DNS server itself, even if the records it serves are AAAA records.
@@ -102,6 +117,9 @@ in
 
       roles.client.tags.desktop = { };
       roles.server.tags.server = { };
+      roles.server.settings.users = [ "root" ];
+      roles.desktop.tags.desktop = { };
+      roles.desktop.settings.users = [ "root" ];
     };
 
     borgbackup-desktops = {
@@ -193,6 +211,7 @@ in
         # Work
         "slack" "thunderbird" "gpu-screen-recorder-gtk"
         "qgroundcontrol" "stm32cubemx" "segger-jlink" "betaflight-configurator"
+        "kicad"
 
         # Customization
         "spicetify-cli"
@@ -313,6 +332,7 @@ in
     max-hetzner-nix = {
       nixpkgs.hostPlatform = "x86_64-linux";
       imports = [
+        (clanInternalNetworking "max-hetzner-nix")
         ./machines/max-hetzner-nix
         inputs.home-manager.nixosModules.home-manager
         {
@@ -327,6 +347,7 @@ in
       nixpkgs.hostPlatform = "x86_64-linux";
       clan.core.deployment.requireExplicitUpdate = true;
       imports = [
+        (clanInternalNetworking "max-richard-nix")
         ./machines/max-richard-nix
         inputs.home-manager.nixosModules.home-manager
         {
@@ -340,6 +361,7 @@ in
     max-openclaw-nix = {
       nixpkgs.hostPlatform = "x86_64-linux";
       imports = [
+        (clanInternalNetworking "max-openclaw-nix")
         ./machines/max-openclaw-nix
         inputs.home-manager.nixosModules.home-manager
         {
@@ -357,6 +379,8 @@ in
       nixpkgs.hostPlatform = "x86_64-linux";
       clan.core.deployment.requireExplicitUpdate = true;
       imports = [
+        (desktopClanNetworking "max-g14-nix")
+        desktopBorgbackupProgress
         ./machines/max-g14-nix
         inputs.home-manager.nixosModules.home-manager
         inputs.nixos-hardware.nixosModules.asus-zephyrus-ga402x-nvidia
@@ -372,6 +396,8 @@ in
       nixpkgs.hostPlatform = "x86_64-linux";
       clan.core.deployment.requireExplicitUpdate = true;
       imports = [
+        (desktopClanNetworking "max-fw-modal")
+        desktopBorgbackupProgress
         ./machines/max-fw-modal
         inputs.home-manager.nixosModules.home-manager
         inputs.nixos-hardware.nixosModules.asus-zephyrus-ga402x-nvidia
@@ -387,6 +413,8 @@ in
       nixpkgs.hostPlatform = "x86_64-linux";
       clan.core.deployment.requireExplicitUpdate = true;
       imports = [
+        (desktopClanNetworking "max-xps-modal")
+        desktopBorgbackupProgress
         ./machines/max-xps-modal
         inputs.home-manager.nixosModules.home-manager
         {

@@ -1,4 +1,33 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
+let
+  ghosttyKdeBlur = pkgs.symlinkJoin {
+    name = "ghostty-kde-blur-${pkgs.ghostty.version}";
+    paths = [ pkgs.ghostty ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    meta = pkgs.ghostty.meta // {
+      mainProgram = "ghostty";
+    };
+    postBuild = ''
+      rm "$out/bin/ghostty"
+      makeWrapper ${lib.getExe pkgs.ghostty} "$out/bin/ghostty" \
+        --set GDK_BACKEND x11
+
+      for file in \
+        share/applications/com.mitchellh.ghostty.desktop \
+        share/dbus-1/services/com.mitchellh.ghostty.service \
+        share/systemd/user/app-com.mitchellh.ghostty.service
+      do
+        if [ -e "$out/$file" ]; then
+          rm "$out/$file"
+          cp "${pkgs.ghostty}/$file" "$out/$file"
+          chmod u+w "$out/$file"
+          substituteInPlace "$out/$file" \
+            --replace-fail "${lib.getExe pkgs.ghostty}" "$out/bin/ghostty"
+        fi
+      done
+    '';
+  };
+in
 {
   imports = [ ./common.nix ];
 
@@ -89,6 +118,7 @@
 
   programs.ghostty = {
     enable = true;
+    package = ghosttyKdeBlur;
     enableBashIntegration = true;
     themes.catppuccin-mocha = {
       background = "1e1e2e";
@@ -121,6 +151,15 @@
       font-family = "Berkeley Mono";
     };
   };
+
+  home.activation.configureKwinBlur = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled true
+    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file kwinrc --group Effect-blur --key BlurStrength 13
+
+    if [ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+      ${pkgs.kdePackages.qttools}/bin/qdbus org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+    fi
+  '';
 
   programs.vscode = {
     enable = true;
