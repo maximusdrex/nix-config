@@ -170,7 +170,7 @@ in
       module.name = "packages";
       roles.default.tags.all = { };
       roles.default.settings.packages = [
-        "git" "vim" "wget" "curl" "jq" "htop" "fastfetch" "tree" "ripgrep"
+        "git" "vim" "wget" "curl" "jq" "htop" "fastfetch" "tree" "ripgrep" "fzf" "git-crypt"
 
         # Container Tools
         "dive" "podman-tui" "podman-compose" "runc" "conmon" "skopeo"
@@ -202,7 +202,7 @@ in
         "google-chrome" "vlc" "discord" "keepassxc" "rclone" "libreoffice-qt6-fresh"
         
         # Gaming
-        "mangohud" "lutris" "bottles" "heroic"
+        "mangohud" "lutris" "heroic"
 
         # Dev
         "distrobox" "distrobox-tui"
@@ -400,7 +400,7 @@ in
         desktopBorgbackupProgress
         ./machines/max-fw-modal
         inputs.home-manager.nixosModules.home-manager
-        inputs.nixos-hardware.nixosModules.asus-zephyrus-ga402x-nvidia
+        inputs.nixos-hardware.nixosModules.framework-amd-ai-300-series
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;

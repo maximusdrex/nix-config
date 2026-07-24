@@ -38,7 +38,6 @@ in
 
   home.packages = with pkgs; [
     kdePackages.kalk
-    kdePackages.calligra
     kdePackages.cantor
     kdePackages.filelight
     kdePackages.isoimagewriter
