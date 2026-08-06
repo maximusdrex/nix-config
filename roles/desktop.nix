@@ -16,7 +16,10 @@ in
 
   environment.profileRelativeSessionVariables.QML_IMPORT_PATH = [ "/lib/qt-6/qml" ];
 
-  nixpkgs.overlays = lib.mkAfter [ localPackagesOverlay ];
+  nixpkgs.overlays = lib.mkAfter [
+    inputs.ghostty.overlays.default
+    localPackagesOverlay
+  ];
 
   nixpkgs.config.permittedInsecurePackages = [
     "segger-jlink-qt4-874"
