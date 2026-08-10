@@ -202,7 +202,7 @@ in
         "google-chrome" "vlc" "discord" "keepassxc" "rclone" "libreoffice-qt6-fresh"
         
         # Gaming
-        "mangohud" "lutris" "heroic"
+        "mangohud" "lutris" "heroic" "gnugo"
 
         # Dev
         "distrobox" "distrobox-tui"
