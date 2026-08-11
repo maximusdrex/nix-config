@@ -4,6 +4,7 @@ let
   inherit (lib.types)
     bool
     enum
+    ints
     lines
     listOf
     nullOr
@@ -51,6 +52,50 @@ in
 
           locationExtraConfig = mkOption {
             type = lines;
+          };
+
+          upstreamIP = mkOption {
+            type = nullOr str;
+          };
+        };
+      }
+    );
+  };
+
+  options.transports = mkOption {
+    default = [ ];
+    type = listOf (
+      submodule {
+        options = {
+          routeName = mkOption {
+            type = str;
+          };
+
+          machineName = mkOption {
+            type = str;
+          };
+
+          protocol = mkOption {
+            type = enum [
+              "tcp"
+              "udp"
+            ];
+          };
+
+          publicPort = mkOption {
+            type = port;
+          };
+
+          upstreamPort = mkOption {
+            type = port;
+          };
+
+          proxyTimeout = mkOption {
+            type = str;
+          };
+
+          connectionLimitPerIP = mkOption {
+            type = ints.positive;
           };
 
           upstreamIP = mkOption {

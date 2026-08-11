@@ -57,6 +57,7 @@ in
   exportInterfaces.publicProxy = ./clanServices/edge-proxy/export-interface.nix;
   modules =
     {
+      anytype = ./clanServices/anytype;
       build-farm = ./clanServices/build-farm;
       desktop-access = ./clanServices/desktop-access;
       edge-proxy = ./clanServices/edge-proxy;
@@ -70,7 +71,7 @@ in
     };
 
     max-richard-nix = {
-      deploy.targetHost = "max@max-richard-nix.local";
+      deploy.targetHost = "max@max-richard-nix.zt.maxschaefer.me";
       tags = [ "nixos" "server" "home-services" ];
     };
 
@@ -120,6 +121,30 @@ in
       roles.server.settings.users = [ "root" ];
       roles.desktop.tags.desktop = { };
       roles.desktop.settings.users = [ "root" ];
+    };
+
+    anytype = {
+      module = {
+        input = "self";
+        name = "anytype";
+      };
+
+      roles.storage.machines."max-richard-nix".settings = {
+        endpointHost = "max-richard-nix.${internalZTDomain}";
+        endpointInterface = "ztc65mo6gt";
+        stateDir = "/var/lib/anytype-public";
+        minioQuota = "100GiB";
+      };
+
+      roles.nodes.machines."max-hetzner-nix".settings = {
+        stateDir = "/var/lib/anytype-public";
+        externalHosts = [
+          "max-hetzner-nix.${internalZTDomain}"
+          "anytype.maxschaefer.me"
+        ];
+        fileDefaultLimit = 10737418240;
+        sharedSpacesLimit = 100;
+      };
     };
 
     borgbackup-desktops = {
@@ -217,7 +242,7 @@ in
         "spicetify-cli"
 
         # Personal
-        "spotify" "solaar" "gdrive" "cbonsai" "qalculate-qt" "nom" "codex" "claude-code"
+        "spotify" "solaar" "gdrive" "cbonsai" "qalculate-qt" "nom" "codex" "claude-code" "anytype"
       ];
     };
 
@@ -290,6 +315,7 @@ in
 
       roles.edge.machines."max-hetzner-nix".settings = {
         acmeEmail = "max@theschaefers.com";
+        transportListenAddresses = [ hetznerPublicIPv4 ];
       };
 
       roles.server.tags.server = { };
@@ -319,6 +345,41 @@ in
         path = "/grafana/";
         port = 3000;
         proxyWebsockets = true;
+      };
+
+      roles.server.machines."max-hetzner-nix".settings.transports = {
+        anytype-node-tcp = {
+          protocol = "tcp";
+          publicPort = 1001;
+        };
+        anytype-coordinator-tcp = {
+          protocol = "tcp";
+          publicPort = 1004;
+        };
+        anytype-filenode-tcp = {
+          protocol = "tcp";
+          publicPort = 1005;
+        };
+        anytype-consensusnode-tcp = {
+          protocol = "tcp";
+          publicPort = 1006;
+        };
+        anytype-node-quic = {
+          protocol = "udp";
+          publicPort = 1011;
+        };
+        anytype-coordinator-quic = {
+          protocol = "udp";
+          publicPort = 1014;
+        };
+        anytype-filenode-quic = {
+          protocol = "udp";
+          publicPort = 1015;
+        };
+        anytype-consensusnode-quic = {
+          protocol = "udp";
+          publicPort = 1016;
+        };
       };
 
       roles.server.machines."max-openclaw-nix".settings.routes.openclaw = {

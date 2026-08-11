@@ -13,80 +13,128 @@ let
 
   hostType = types.strMatching "^(@|[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*)$";
   pathType = types.strMatching "^/.*$";
+  durationType = types.strMatching "^[0-9]+(ms|s|m|h|d)$";
 
   mkRouteFQDN = domain: host: if host == "@" then domain else "${host}.${domain}";
 in
 {
   _class = "clan.service";
   manifest.name = "edge-proxy";
-  manifest.description = "Public nginx edge proxy with ACME and ZeroTier-backed upstream routing";
+  manifest.description = "Public nginx edge proxy with ACME and upstream routes over ZeroTier";
   manifest.categories = [ "Network" ];
   manifest.readme = builtins.readFile ./README.md;
   manifest.exports.out = [ "publicProxy" ];
 
   roles.server = {
-    description = "Exports route claims for services running on this machine.";
+    description = "Exports route claims for services on this machine.";
     interface =
       { lib, ... }:
       {
-        options.routes = lib.mkOption {
-          default = { };
-          description = ''
-            Public routes claimed by this machine.
+        options = {
+          routes = lib.mkOption {
+            default = { };
+            description = ''
+              Public HTTP routes claimed by this machine.
 
-            Each route maps a subdomain and path on the clan domain to a local
-            port that the edge machine will proxy over ZeroTier.
-          '';
-          type = types.attrsOf (
-            types.submodule (
-              { ... }:
-              {
-                options = {
-                  host = lib.mkOption {
-                    type = hostType;
-                    description = ''
-                      Subdomain under meta.domain to claim.
-                      Use "@" to claim the apex domain directly.
-                    '';
-                    example = "home";
-                  };
+              Each route maps a subdomain and path on the clan domain to a local
+              port that the edge machine will proxy over ZeroTier.
+            '';
+            type = types.attrsOf (
+              types.submodule (
+                { ... }:
+                {
+                  options = {
+                    host = lib.mkOption {
+                      type = hostType;
+                      description = ''
+                        Subdomain under meta.domain to claim.
+                        Use "@" to claim the apex domain directly.
+                      '';
+                      example = "home";
+                    };
 
-                  path = lib.mkOption {
-                    type = pathType;
-                    default = "/";
-                    description = "URL path prefix to proxy.";
-                  };
+                    path = lib.mkOption {
+                      type = pathType;
+                      default = "/";
+                      description = "URL path prefix to proxy.";
+                    };
 
-                  port = lib.mkOption {
-                    type = types.port;
-                    description = "Local port to proxy on this machine.";
-                    example = 8123;
-                  };
+                    port = lib.mkOption {
+                      type = types.port;
+                      description = "Local port to proxy on this machine.";
+                      example = 8123;
+                    };
 
-                  scheme = lib.mkOption {
-                    type = types.enum [
-                      "http"
-                      "https"
-                    ];
-                    default = "http";
-                    description = "Upstream scheme used by nginx when proxying.";
-                  };
+                    scheme = lib.mkOption {
+                      type = types.enum [
+                        "http"
+                        "https"
+                      ];
+                      default = "http";
+                      description = "Upstream scheme for the nginx proxy.";
+                    };
 
-                  proxyWebsockets = lib.mkOption {
-                    type = types.bool;
-                    default = true;
-                    description = "Enable websocket proxy support for this route.";
-                  };
+                    proxyWebsockets = lib.mkOption {
+                      type = types.bool;
+                      default = true;
+                      description = "Enable websocket proxy support for this route.";
+                    };
 
-                  locationExtraConfig = lib.mkOption {
-                    type = types.lines;
-                    default = "";
-                    description = "Extra nginx location config for this route.";
+                    locationExtraConfig = lib.mkOption {
+                      type = types.lines;
+                      default = "";
+                      description = "Extra nginx location config for this route.";
+                    };
                   };
-                };
-              }
-            )
-          );
+                }
+              )
+            );
+          };
+
+          transports = lib.mkOption {
+            default = { };
+            description = "Public TCP and UDP routes claimed by this machine.";
+            type = types.attrsOf (
+              types.submodule (
+                { config, ... }:
+                {
+                  options = {
+                    protocol = lib.mkOption {
+                      type = types.enum [
+                        "tcp"
+                        "udp"
+                      ];
+                      description = "Transport protocol for this route.";
+                    };
+
+                    publicPort = lib.mkOption {
+                      type = types.port;
+                      description = "Public port on the edge machine.";
+                    };
+
+                    upstreamPort = lib.mkOption {
+                      type = types.port;
+                      default = config.publicPort;
+                      defaultText = lib.literalExpression "config.publicPort";
+                      description = "Port on the source machine.";
+                    };
+
+                    proxyTimeout = lib.mkOption {
+                      type = durationType;
+                      default = "10m";
+                      description = "Maximum idle time for a proxied session.";
+                    };
+
+                    connectionLimitPerIP = lib.mkOption {
+                      type = types.ints.positive;
+                      default = 64;
+                      description = "Maximum active sessions for one source address.";
+                    };
+                  };
+                }
+              )
+            );
+          };
         };
       };
 
@@ -120,11 +168,34 @@ in
           locationExtraConfig = route.locationExtraConfig;
           upstreamIP = upstreamHost;
         }) settings.routes;
+        normalizedTransports = lib.mapAttrsToList (routeName: route: {
+          inherit routeName;
+          inherit (route)
+            connectionLimitPerIP
+            protocol
+            proxyTimeout
+            publicPort
+            upstreamPort
+            ;
+          machineName = machine.name;
+          upstreamIP = upstreamHost;
+        }) settings.transports;
         exposedPorts = lib.unique (map (route: route.port) normalizedRoutes);
+        exposedTCPPorts = lib.unique (
+          map (route: route.upstreamPort) (
+            lib.filter (route: route.protocol == "tcp") normalizedTransports
+          )
+        );
+        exposedUDPPorts = lib.unique (
+          map (route: route.upstreamPort) (
+            lib.filter (route: route.protocol == "udp") normalizedTransports
+          )
+        );
       in
       {
         exports = mkExports {
           publicProxy.routes = normalizedRoutes;
+          publicProxy.transports = normalizedTransports;
         };
 
         nixosModule = {
@@ -144,7 +215,8 @@ in
             }
           ];
 
-          networking.firewall.allowedTCPPorts = exposedPorts;
+          networking.firewall.allowedTCPPorts = exposedPorts ++ exposedTCPPorts;
+          networking.firewall.allowedUDPPorts = exposedUDPPorts;
         };
       };
   };
@@ -154,9 +226,20 @@ in
     interface =
       { lib, ... }:
       {
-        options.acmeEmail = lib.mkOption {
-          type = types.str;
-          description = "Email address used for ACME registration.";
+        options = {
+          acmeEmail = lib.mkOption {
+            type = types.str;
+            description = "Email address used for ACME registration.";
+          };
+
+          transportListenAddresses = lib.mkOption {
+            type = types.listOf types.str;
+            default = [
+              "0.0.0.0"
+              "[::]"
+            ];
+            description = "Addresses that accept public TCP and UDP routes.";
+          };
         };
       };
 
@@ -181,6 +264,9 @@ in
         allRoutes = lib.concatLists (
           lib.mapAttrsToList (_scopeKey: exportValue: exportValue.publicProxy.routes or [ ]) routeExports
         );
+        allTransports = lib.concatLists (
+          lib.mapAttrsToList (_scopeKey: exportValue: exportValue.publicProxy.transports or [ ]) routeExports
+        );
 
         routeKey = route: "${route.fqdn}|${route.path}";
         groupedByClaim = lib.groupBy routeKey allRoutes;
@@ -189,6 +275,40 @@ in
         ) (builtins.attrNames groupedByClaim);
         routesMissingUpstreamIP = lib.filter (route: route.upstreamIP == null) allRoutes;
         routesByHost = lib.groupBy (route: route.fqdn) allRoutes;
+        transportKey = route: "${route.protocol}|${toString route.publicPort}";
+        groupedByTransport = lib.groupBy transportKey allTransports;
+        duplicateTransportKeys = lib.filter (
+          key: lib.length groupedByTransport.${key} > 1
+        ) (builtins.attrNames groupedByTransport);
+        transportsMissingUpstreamIP = lib.filter (route: route.upstreamIP == null) allTransports;
+
+        transportZoneName =
+          route:
+          "edge_transport_${builtins.substring 0 12 (builtins.hashString "sha256" (transportKey route))}";
+
+        renderTransportListen =
+          route: address:
+          "listen ${address}:${toString route.publicPort}${
+            lib.optionalString (route.protocol == "udp") " udp reuseport"
+          };";
+
+        renderTransport =
+          route:
+          let
+            zoneName = transportZoneName route;
+          in
+          ''
+            limit_conn_zone $binary_remote_addr zone=${zoneName}:1m;
+
+            server {
+              ${builtins.concatStringsSep "\n" (map (renderTransportListen route) settings.transportListenAddresses)}
+              proxy_connect_timeout 5s;
+              proxy_timeout ${route.proxyTimeout};
+              ${lib.optionalString (route.protocol == "tcp") "proxy_socket_keepalive on;"}
+              proxy_pass ${formatURLHost route.upstreamIP}:${toString route.upstreamPort};
+              limit_conn ${zoneName} ${toString route.connectionLimitPerIP};
+            }
+          '';
 
         duplicateClaimAssertions = map (
           key:
@@ -206,6 +326,22 @@ in
             '';
           }
         ) duplicateClaimKeys;
+        duplicateTransportAssertions = map (
+          key:
+          let
+            routes = groupedByTransport.${key};
+            claimants = builtins.concatStringsSep ", " (
+              map (route: "${route.machineName}.${route.routeName}") routes
+            );
+          in
+          {
+            assertion = false;
+            message = ''
+              edge-proxy instance '${instanceName}' has a duplicate transport claim for '${key}'.
+              Claimants: ${claimants}
+            '';
+          }
+        ) duplicateTransportKeys;
       in
       {
         nixosModule =
@@ -238,7 +374,23 @@ in
                   '';
                 }
               ]
-              ++ duplicateClaimAssertions;
+              ++ lib.optional (allTransports != [ ] && settings.transportListenAddresses == [ ]) {
+                assertion = false;
+                message = "edge-proxy instance '${instanceName}' needs a transport listen address.";
+              }
+              ++ lib.optional (transportsMissingUpstreamIP != [ ]) {
+                assertion = false;
+                message = ''
+                  edge-proxy instance '${instanceName}' has transport claims on machines without a published ZeroTier IP:
+                  ${
+                    builtins.concatStringsSep ", " (
+                      map (route: "${route.machineName}.${route.routeName}") transportsMissingUpstreamIP
+                    )
+                  }
+                '';
+              }
+              ++ duplicateClaimAssertions
+              ++ duplicateTransportAssertions;
 
             security.acme = {
               acceptTerms = true;
@@ -313,12 +465,23 @@ in
                   inherit locations;
                 }
               ) routesByHost;
+
+              streamConfig = lib.mkAfter (
+                builtins.concatStringsSep "\n" (map renderTransport allTransports)
+              );
             };
 
-            networking.firewall.allowedTCPPorts = [
-              80
-              443
-            ];
+            networking.firewall.allowedTCPPorts =
+              [
+                80
+                443
+              ]
+              ++ map (route: route.publicPort) (
+                lib.filter (route: route.protocol == "tcp") allTransports
+              );
+            networking.firewall.allowedUDPPorts = map (route: route.publicPort) (
+              lib.filter (route: route.protocol == "udp") allTransports
+            );
           };
       };
   };
