@@ -275,6 +275,7 @@ in
                       "--port"
                       "27001"
                       "--bind_ip_all"
+                      "--ipv6"
                       "--keyFile"
                       "/run/secrets/mongo-keyfile"
                     ];
@@ -286,7 +287,7 @@ in
                       "${publishHost}:27001:27001"
                       "127.0.0.1:27001:27001"
                     ];
-                    healthCmd = ''mongosh --port 27001 --quiet --username "$MONGO_INITDB_ROOT_USERNAME" --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "try { rs.initiate({_id:'rs0',members:[{_id:0,host:'${settings.endpointHost}:27001'}]}); } catch(e) { } rs.status().ok" | grep -q 1'';
+                    healthCmd = ''mongosh "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@[::1]:27001/?authSource=admin" --quiet --eval "try { rs.initiate({_id:'rs0',members:[{_id:0,host:'${settings.endpointHost}:27001'}]}); } catch(e) { } rs.status().ok" | grep -q 1'';
                     healthInterval = "10s";
                     healthStartPeriod = "30s";
                     healthTimeout = "30s";
