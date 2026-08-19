@@ -9,6 +9,7 @@ let
 
   credentialGeneratorName = instanceName: "anytype-${instanceName}-credentials";
   externalHostType = types.strMatching "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$";
+  isIPv4Literal = host: builtins.match "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" host != null;
   stateDirType = types.strMatching "^/.*[^/]$";
   quotaType = types.strMatching "^[1-9][0-9]*(KiB|MiB|GiB|TiB)$";
 
@@ -199,6 +200,8 @@ in
               "d ${stateDir}/storage/redis 0700 root root -"
               "d ${stateDir}/storage/minio 0700 root root -"
             ];
+
+            clan.core.state.anytype.folders = [ stateDir ];
 
             networking.firewall.interfaces.${settings.endpointInterface}.allowedTCPPorts = [
               6379
@@ -392,13 +395,17 @@ in
       { lib, ... }:
       {
         options = {
-          externalHosts = lib.mkOption {
+          publicClientHosts = lib.mkOption {
             type = types.listOf externalHostType;
-            description = "Ordered DNS hosts that Anytype clients use for all sync services.";
-            example = [
-              "node.zt.example.com"
-              "anytype.example.com"
-            ];
+            description = "Ordered public DNS names advertised by every Anytype service.";
+            example = [ "anytype.example.com" ];
+          };
+
+          directQuicBindAddresses = lib.mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            description = "Host IP addresses that publish the Anytype QUIC ports without a UDP proxy.";
+            example = [ "203.0.113.10" ];
           };
 
           stateDir = lib.mkOption {
@@ -458,6 +465,7 @@ in
             network = quadlet.networks.anytype;
             containers = quadlet.containers;
             renderService = "anytype-render-config.service";
+            applyService = "anytype-coordinator-bootstrap.service";
 
             daemonService = {
               Restart = "on-failure";
@@ -477,6 +485,7 @@ in
               unitConfig = {
                 Requires = dependencies;
                 After = dependencies;
+                PartOf = dependencies;
               };
               serviceConfig = daemonService;
               containerConfig = {
@@ -547,12 +556,34 @@ in
                 '';
               }
               {
-                assertion = settings.externalHosts != [ ];
-                message = "Anytype nodes host '${machine.name}' needs at least one external host.";
+                assertion = settings.publicClientHosts != [ ];
+                message = "Anytype nodes host '${machine.name}' needs at least one public client host.";
               }
               {
-                assertion = settings.externalHosts == lib.unique settings.externalHosts;
-                message = "Anytype nodes host '${machine.name}' needs unique external hosts.";
+                assertion = settings.publicClientHosts == lib.unique settings.publicClientHosts;
+                message = "Anytype nodes host '${machine.name}' needs unique public client hosts.";
+              }
+              {
+                assertion = lib.all (host: !isIPv4Literal host) settings.publicClientHosts;
+                message = "Anytype public client hosts for '${machine.name}' must use DNS names.";
+              }
+              {
+                assertion = lib.all (
+                  host:
+                  host != storageEndpointHost
+                  && host != "localhost"
+                  && !lib.hasInfix ".zt." host
+                  && !lib.hasPrefix "any-sync-" host
+                ) settings.publicClientHosts;
+                message = "Anytype public client hosts for '${machine.name}' must not use private service names.";
+              }
+              {
+                assertion = settings.directQuicBindAddresses == lib.unique settings.directQuicBindAddresses;
+                message = "Anytype direct QUIC bind addresses for '${machine.name}' must be unique.";
+              }
+              {
+                assertion = lib.all isIPv4Literal settings.directQuicBindAddresses;
+                message = "Anytype direct QUIC bind addresses for '${machine.name}' must use IPv4 literals.";
               }
             ];
 
@@ -571,6 +602,15 @@ in
               "d ${stateDir}/storage/networkStore/any-sync-consensusnode 0700 root root -"
             ];
 
+            clan.core.state.anytype.folders = [ stateDir ];
+
+            networking.firewall.allowedUDPPorts = lib.optionals (settings.directQuicBindAddresses != [ ]) [
+              1011
+              1014
+              1015
+              1016
+            ];
+
             systemd.services.anytype-render-config = {
               description = "Render the Anytype network configuration";
               requires = [ "anytype-generate.service" ];
@@ -578,7 +618,7 @@ in
               environment = {
                 ANYTYPE_STATE_DIR = stateDir;
                 ANYTYPE_TEMPLATE_DIR = toString ./templates;
-                ANYTYPE_EXTERNAL_HOSTS = builtins.toJSON settings.externalHosts;
+                ANYTYPE_PUBLIC_CLIENT_HOSTS = builtins.toJSON settings.publicClientHosts;
                 ANYTYPE_STORAGE_HOST = storageEndpointHost;
                 ANYTYPE_FILE_DEFAULT_LIMIT = toString settings.fileDefaultLimit;
                 ANYTYPE_SHARED_SPACES_LIMIT = toString settings.sharedSpacesLimit;
@@ -605,6 +645,37 @@ in
                   "mongo-password:${credentialFile "mongo-password"}"
                   "redis-password:${credentialFile "redis-password"}"
                 ];
+              };
+            };
+
+            systemd.services.anytype-coordinator-bootstrap = {
+              description = "Apply the Anytype network configuration";
+              requires = [
+                renderService
+                "anytype-network.service"
+              ];
+              after = [
+                renderService
+                "anytype-network.service"
+              ];
+              partOf = [ renderService ];
+              environment = {
+                ANYTYPE_STATE_DIR = stateDir;
+                ANYTYPE_COORDINATOR_IMAGE = images.coordinator;
+                ANYTYPE_PODMAN_NETWORK = "anytype";
+              };
+              path = [
+                pkgs.coreutils
+                pkgs.gnused
+                config.virtualisation.podman.package
+              ];
+              script = ''
+                exec ${pkgs.bash}/bin/bash ${./apply-config.sh}
+              '';
+              serviceConfig = oneShotService // {
+                Restart = "on-failure";
+                RestartSec = "5s";
+                UMask = "0077";
               };
             };
 
@@ -636,34 +707,11 @@ in
                   };
                 };
 
-                anytype-coordinator-bootstrap =
-                  lib.recursiveUpdate
-                    (oneShot images.coordinator [ renderService ])
-                    {
-                      serviceConfig = oneShotService // {
-                        Restart = "on-failure";
-                        RestartSec = "5s";
-                      };
-                      containerConfig = {
-                        exec = [
-                          "/bin/any-sync-confapply"
-                          "-c"
-                          "/etc/any-sync-coordinator/config.yml"
-                          "-n"
-                          "/etc/any-sync-coordinator/network.yml"
-                          "-e"
-                        ];
-                        volumes = [
-                          "${stateDir}/config/any-sync-coordinator:/etc/any-sync-coordinator:Z"
-                        ];
-                      };
-                    };
-
                 anytype-coordinator =
                   lib.recursiveUpdate
                     (daemon images.coordinator [
                       renderService
-                      containers.anytype-coordinator-bootstrap.ref
+                      applyService
                     ])
                     {
                       containerConfig = {
@@ -678,7 +726,8 @@ in
                           "127.0.0.1:1004:1004/tcp"
                           "127.0.0.1:1014:1014/udp"
                           "127.0.0.1:8004:8000"
-                        ];
+                        ]
+                        ++ map (address: "${formatHost address}:1014:1014/udp") settings.directQuicBindAddresses;
                       };
                     };
 
@@ -705,7 +754,8 @@ in
                           "127.0.0.1:1011:1011/udp"
                           "127.0.0.1:8081:8080"
                           "127.0.0.1:8001:8000"
-                        ];
+                        ]
+                        ++ map (address: "${formatHost address}:1011:1011/udp") settings.directQuicBindAddresses;
                       };
                     };
 
@@ -729,7 +779,8 @@ in
                           "127.0.0.1:1005:1005/tcp"
                           "127.0.0.1:1015:1015/udp"
                           "127.0.0.1:8005:8000"
-                        ];
+                        ]
+                        ++ map (address: "${formatHost address}:1015:1015/udp") settings.directQuicBindAddresses;
                       };
                     };
 
@@ -752,7 +803,8 @@ in
                           "127.0.0.1:1006:1006/tcp"
                           "127.0.0.1:1016:1016/udp"
                           "127.0.0.1:8006:8000"
-                        ];
+                        ]
+                        ++ map (address: "${formatHost address}:1016:1016/udp") settings.directQuicBindAddresses;
                       };
                     };
               };

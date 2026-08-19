@@ -138,10 +138,8 @@ in
 
       roles.nodes.machines."max-hetzner-nix".settings = {
         stateDir = "/var/lib/anytype-public";
-        externalHosts = [
-          "max-hetzner-nix.${internalZTDomain}"
-          "anytype.maxschaefer.me"
-        ];
+        publicClientHosts = [ "anytype.maxschaefer.me" ];
+        directQuicBindAddresses = [ hetznerPublicIPv4 ];
         fileDefaultLimit = 10737418240;
         sharedSpacesLimit = 100;
       };
@@ -225,7 +223,7 @@ in
       roles.default.tags.desktop = { };
       roles.default.settings.packages = [
         "google-chrome" "vlc" "discord" "keepassxc" "rclone" "libreoffice-qt6-fresh"
-        
+
         # Gaming
         "mangohud" "lutris" "heroic" "gnugo"
 
@@ -236,7 +234,7 @@ in
         # Work
         "slack" "thunderbird" "gpu-screen-recorder-gtk"
         "qgroundcontrol" "stm32cubemx" "segger-jlink" "betaflight-configurator"
-        "kicad"
+        "kicad" "qdl"
 
         # Customization
         "spicetify-cli"
@@ -363,22 +361,6 @@ in
         anytype-consensusnode-tcp = {
           protocol = "tcp";
           publicPort = 1006;
-        };
-        anytype-node-quic = {
-          protocol = "udp";
-          publicPort = 1011;
-        };
-        anytype-coordinator-quic = {
-          protocol = "udp";
-          publicPort = 1014;
-        };
-        anytype-filenode-quic = {
-          protocol = "udp";
-          publicPort = 1015;
-        };
-        anytype-consensusnode-quic = {
-          protocol = "udp";
-          publicPort = 1016;
         };
       };
 

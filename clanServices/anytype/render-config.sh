@@ -4,7 +4,7 @@ set -euo pipefail
 
 : "${ANYTYPE_STATE_DIR:?ANYTYPE_STATE_DIR is required}"
 : "${ANYTYPE_TEMPLATE_DIR:?ANYTYPE_TEMPLATE_DIR is required}"
-: "${ANYTYPE_EXTERNAL_HOSTS:?ANYTYPE_EXTERNAL_HOSTS is required}"
+: "${ANYTYPE_PUBLIC_CLIENT_HOSTS:?ANYTYPE_PUBLIC_CLIENT_HOSTS is required}"
 : "${ANYTYPE_STORAGE_HOST:?ANYTYPE_STORAGE_HOST is required}"
 : "${ANYTYPE_FILE_DEFAULT_LIMIT:?ANYTYPE_FILE_DEFAULT_LIMIT is required}"
 : "${ANYTYPE_SHARED_SPACES_LIMIT:?ANYTYPE_SHARED_SPACES_LIMIT is required}"
@@ -43,12 +43,12 @@ if [[ ! "$redis_password" =~ ^[a-f0-9]{64}$ ]]; then
   exit 1
 fi
 
-mapfile -t external_hosts < <(
-  printf '%s' "$ANYTYPE_EXTERNAL_HOSTS" | yq eval --unwrapScalar '.[]' -
+mapfile -t public_client_hosts < <(
+  printf '%s' "$ANYTYPE_PUBLIC_CLIENT_HOSTS" | yq eval --unwrapScalar '.[]' -
 )
 
-if (( ${#external_hosts[@]} == 0 )); then
-  echo "The external host list is empty." >&2
+if (( ${#public_client_hosts[@]} == 0 )); then
+  echo "The public client host list is empty." >&2
   exit 1
 fi
 
@@ -81,44 +81,79 @@ done
 
 nodes_processed_tmp="$(mktemp "$identity_dir/nodesProcessed.yml.XXXXXX")"
 NETWORK_ID="$network_id" \
+PUBLIC_CLIENT_HOSTS="$ANYTYPE_PUBLIC_CLIENT_HOSTS" \
   yq eval --indent 2 '
+    (strenv(PUBLIC_CLIENT_HOSTS) | from_json) as $hosts |
     .networkId = strenv(NETWORK_ID) |
-    del(.creationTime)
+    del(.creationTime) |
+    .nodes[0].addresses = (
+      ($hosts | map(. + ":1001")) +
+      ($hosts | map("quic://" + . + ":1011"))
+    ) |
+    .nodes[1].addresses = (
+      ($hosts | map(. + ":1004")) +
+      ($hosts | map("quic://" + . + ":1014"))
+    ) |
+    .nodes[2].addresses = (
+      ($hosts | map(. + ":1005")) +
+      ($hosts | map("quic://" + . + ":1015"))
+    ) |
+    .nodes[3].addresses = (
+      ($hosts | map(. + ":1006")) +
+      ($hosts | map("quic://" + . + ":1016"))
+    ) |
+    .nodes[].addresses style=""
   ' "$identity_dir/nodes.yml" > "$nodes_processed_tmp"
 
-for ((host_index = ${#external_hosts[@]} - 1; host_index >= 0; host_index--)); do
-  external_host="${external_hosts[$host_index]}"
-  EXTERNAL_HOST="$external_host" \
-    yq eval --inplace --indent 2 '
-    .nodes[0].addresses = [
-      strenv(EXTERNAL_HOST) + ":1001",
-      "quic://" + strenv(EXTERNAL_HOST) + ":1011"
-    ] + .nodes[0].addresses |
-    .nodes[1].addresses = [
-      strenv(EXTERNAL_HOST) + ":1004",
-      "quic://" + strenv(EXTERNAL_HOST) + ":1014"
-    ] + .nodes[1].addresses |
-    .nodes[2].addresses = [
-      strenv(EXTERNAL_HOST) + ":1005",
-      "quic://" + strenv(EXTERNAL_HOST) + ":1015"
-    ] + .nodes[2].addresses |
-    .nodes[3].addresses = [
-      strenv(EXTERNAL_HOST) + ":1006",
-      "quic://" + strenv(EXTERNAL_HOST) + ":1016"
-    ] + .nodes[3].addresses
-    ' "$nodes_processed_tmp"
+yq eval --exit-status '(.nodes | length) == 4' "$nodes_processed_tmp" >/dev/null
+
+NETWORK_ID="$network_id" \
+  yq eval --exit-status '.networkId == strenv(NETWORK_ID)' \
+  "$nodes_processed_tmp" >/dev/null
+
+node_types=(tree coordinator file consensus)
+tcp_ports=(1001 1004 1005 1006)
+quic_ports=(1011 1014 1015 1016)
+
+for node_index in "${!node_types[@]}"; do
+  NODE_TYPE="${node_types[$node_index]}" \
+    yq eval --exit-status \
+    "(.nodes[$node_index].types | length) == 1 and .nodes[$node_index].types[0] == strenv(NODE_TYPE)" \
+    "$nodes_processed_tmp" >/dev/null
+
+  PUBLIC_CLIENT_HOSTS="$ANYTYPE_PUBLIC_CLIENT_HOSTS" \
+  TCP_PORT="${tcp_ports[$node_index]}" \
+  QUIC_PORT="${quic_ports[$node_index]}" \
+    yq eval --exit-status "
+      (strenv(PUBLIC_CLIENT_HOSTS) | from_json) as \$hosts |
+      (.nodes[$node_index].addresses | to_json) == ((
+        (\$hosts | map(. + \":\" + strenv(TCP_PORT))) +
+        (\$hosts | map(\"quic://\" + . + \":\" + strenv(QUIC_PORT)))
+      ) | to_json)
+    " "$nodes_processed_tmp" >/dev/null
 done
 
-yq eval --exit-status '
-  (.nodes | length) == 4 and
-  .nodes[0].types[0] == "tree" and
-  .nodes[1].types[0] == "coordinator" and
-  .nodes[2].types[0] == "file" and
-  .nodes[3].types[0] == "consensus"
-' "$nodes_processed_tmp" >/dev/null
+yq eval --exit-status \
+  '([.nodes[].peerId | select(. == "")] | length) == 0' \
+  "$nodes_processed_tmp" >/dev/null
 
 chmod 0600 "$nodes_processed_tmp"
 mv -f "$nodes_processed_tmp" "$identity_dir/nodesProcessed.yml"
+
+read -r rendered_configuration_hash _ < <(
+  yq eval --output-format json --indent 0 'del(.id)' \
+    "$identity_dir/nodesProcessed.yml" | sha256sum
+)
+
+if [[ ! "$rendered_configuration_hash" =~ ^[a-f0-9]{64}$ ]]; then
+  echo "The rendered configuration hash has an invalid format." >&2
+  exit 1
+fi
+
+rendered_hash_tmp="$(mktemp "$identity_dir/.renderedConfigurationHash.XXXXXX")"
+printf '%s\n' "$rendered_configuration_hash" > "$rendered_hash_tmp"
+chmod 0600 "$rendered_hash_tmp"
+mv -f "$rendered_hash_tmp" "$identity_dir/.renderedConfigurationHash"
 
 network_file_tmp="$(mktemp "$identity_dir/network.yml.XXXXXX")"
 yq eval --indent 2 '{"network": .}' \
@@ -211,4 +246,6 @@ replace_all_placeholders "$aws_credentials_tmp"
 mv -f "$aws_credentials_tmp" "$config_dir/.aws/credentials"
 
 install -m 0644 "$identity_dir/nodesProcessed.yml" "$state_dir/client.yml"
+install -m 0644 "$identity_dir/nodesProcessed.yml" "$state_dir/client-public.yml"
+rm -f "$state_dir/client-public-tcp.yml"
 chmod 0600 "$identity_dir"/* "$identity_dir"/.[!.]*
